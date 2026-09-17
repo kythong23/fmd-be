@@ -10,12 +10,12 @@ npm install
 cp .env.example .env         # sửa DATABASE_URL + JWT_SECRET
 npm run migrate              # tạo 5 bảng + index
 npm run seed                 # 1 vườn, 16 cây, lịch sử, 3 tài khoản (dev only)
-npm run dev                  # http://localhost:3000/api/v1
+npm run dev                  # http://localhost:2304/api/v1
 ```
 
 Kiểm tra: `npm run typecheck`, `npm test`.
 
-**Swagger UI: http://localhost:3000/api/docs** (spec thô: `/api/docs/openapi.json`).
+**Swagger UI: http://localhost:2304/api/docs** (spec thô: `/api/docs/openapi.json`).
 Bấm **Authorize**, dán `accessToken` lấy từ `/auth/login` là gọi thử được mọi endpoint.
 Mặc định tắt khi `NODE_ENV=production` — bật lại bằng `ENABLE_DOCS=true`.
 

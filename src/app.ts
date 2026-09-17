@@ -17,6 +17,19 @@ export function createApp() {
   const app = express();
   app.disable('x-powered-by');
   app.use(cors({ origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(',') }));
+  // Mọi response JSON kèm cờ success (true khi < 400). ponytail: patch res.json một chỗ
+  // thay vì thêm field vào từng route. Không dùng tên 'status' vì object cây đã có field đó.
+  app.use((_req, res, next) => {
+    const json = res.json.bind(res);
+    res.json = (body: unknown) =>
+      json(
+        body && typeof body === 'object' && !Array.isArray(body)
+          ? { success: res.statusCode < 400, ...body }
+          : body,
+      );
+    next();
+  });
+
   app.use(express.json({ limit: '1mb' }));
 
   // 06_BACKEND §10: request ID + log endpoint/status/duration. Không log body (chứa mật khẩu).

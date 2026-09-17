@@ -86,7 +86,7 @@ route({
   path: '/auth/logout',
   tags: ['Auth'],
   summary: 'Thu hồi toàn bộ phiên của tài khoản',
-  responses: { 204: { description: 'Đã đăng xuất' }, 401: AUTH_ERRORS[401] },
+  responses: { 200: json(z.object({ message: z.string() }), 'Đã đăng xuất'), 401: AUTH_ERRORS[401] },
 });
 
 // ── Trees ────────────────────────────────────────────────────────────────────
@@ -197,8 +197,17 @@ route({
   method: 'get',
   path: '/farm',
   tags: ['Farm'],
-  summary: 'Thông tin vườn + mốc trắc địa + mapLayers (bản vẽ thửa đất)',
+  summary: 'Thông tin vườn + mốc trắc địa (bản vẽ thửa đất hard-code ở FE)',
   responses: { 200: json(Farm, 'Thông tin vườn'), ...AUTH_ERRORS, 404: err('Không tìm thấy vườn') },
+});
+
+route({
+  method: 'post',
+  path: '/farm/trees/provision',
+  tags: ['Farm'],
+  summary: 'Khai tổng số cây ước tính → số mã cây hội tụ về đúng con số đó (thiếu thì tạo, thừa thì xoá mã trống). Cây đã có dữ liệu luôn được giữ.',
+  request: { body: { content: { 'application/json': { schema: s.provisionTreesSchema } } } },
+  responses: { 201: json(s.provisionResultSchema, 'Đã tạo mã cây'), ...AUTH_ERRORS },
 });
 
 route({
@@ -297,6 +306,8 @@ export function buildOpenApiDocument() {
         'Bấm **Authorize** rồi dán `accessToken` lấy từ `/auth/login`.',
         '',
         'Lỗi luôn theo dạng `{ error: { code, message, details? } }` (04_API.md §4).',
+        '',
+        'Mọi response JSON còn kèm `success`: `true` khi status < 400, `false` khi lỗi.',
       ].join('\n'),
     },
     servers: [{ url: `${config.publicApiUrl}/api/v1` }],

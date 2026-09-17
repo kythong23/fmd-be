@@ -225,14 +225,14 @@ export interface CadastralBenchmark {
 
 export const DEFAULT_CADASTRAL_BENCHMARK: CadastralBenchmark = {
   code: 'M0-TT',
-  name: 'Mốc chuẩn trắc địa trung tâm Thửa 142',
-  plotNumber: 'Thửa 142, Tờ 08',
-  address: 'Xã Mỹ Long, Huyện Cái Bè, Tỉnh Tiền Giang',
-  lat: 10.4604,
-  lng: 107.2165,
-  elevationMeters: 4.8,
+  name: 'Mốc trắc địa trung tâm vườn',
+  plotNumber: 'Thửa 35, Tờ 24',
+  address: 'Phường Hàng Gòn, TP. Long Khánh, tỉnh Đồng Nai',
+  lat: 10.8734664,
+  lng: 107.2065857,
+  elevationMeters: 42.5,
   datum: 'VN-2000 / WGS-84',
-  zone: 'Kinh tuyến trục 105°45\'',
+  zone: 'Kinh tuyến trục 107°45\'',
   updatedAt: '2026-03-10',
   source: 'default',
 };

@@ -67,6 +67,20 @@ const treeCore = {
 export const createTreeSchema = z.object(treeCore);
 export const updateTreeSchema = z.object(treeCore).partial();
 
+export const provisionTreesSchema = z.object({
+  estimatedTreeCount: z.number().int().min(1).max(5000),
+});
+
+export const provisionResultSchema = z.object({
+  estimatedTreeCount: z.number().int(),
+  created: z.number().int(),
+  deleted: z.number().int(),
+  kept: z.number().int(),
+  total: z.number().int(),
+  message: z.string(),
+  codes: z.array(z.string()),
+});
+
 export const updatePositionSchema = z.object({
   coordinates: z.object({ lat, lng }),
   mapPosition: z.object({ x: z.number(), y: z.number() }).optional(),
@@ -90,6 +104,8 @@ export const farmSettingsSchema = z
     name: z.string().trim().min(1).max(200).optional(),
     techLead: z.string().max(200).optional(),
     offlineSyncEnabled: z.boolean().optional(),
+    // Chỉ sửa con số. Muốn sinh thêm mã QR theo số mới thì gọi POST /farm/trees/provision.
+    estimatedTreeCount: z.number().int().min(0).max(5000).optional(),
     // publicViewEnabled KHÔNG expose: D1 khoá ở false, MVP không có UI bật.
   })
   .refine((v) => Object.keys(v).length > 0, 'Không có trường nào để cập nhật');
@@ -150,9 +166,11 @@ export const historyRecordSchema = z.object({
 export const treeSchema = z.object({
   id: z.string().uuid(),
   code: z.string(),
-  variety,
+  // Cây mới provision (QR đã in, chưa ai quét) chưa có giống/ngày trồng.
+  variety: variety.optional(),
   age: z.number().int(),
-  plantedDate: isoDate,
+  plantedDate: isoDate.optional(),
+  activated: z.boolean(),
   location: locationSchema,
   mapPosition: z.object({ x: z.number(), y: z.number() }).optional(),
   bedName: z.string().optional(),
@@ -197,7 +215,7 @@ export const farmSchema = z.object({
   publicViewEnabled: z.boolean(),
   offlineSyncEnabled: z.boolean(),
   benchmark: cadastralBenchmarkSchema,
-  mapLayers: z.record(z.unknown()),
+  estimatedTreeCount: z.number().int(),
   updatedAt: z.string(),
 });
 

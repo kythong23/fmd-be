@@ -5,21 +5,14 @@
 import { pool, withTransaction } from '../db/pool.js';
 import { ageFromPlantedDate } from '../domain/history.js';
 import { hashPassword } from '../services/authService.js';
-import {
-  BOUNDARY_SVG_PATH,
-  DEFAULT_CADASTRAL_BENCHMARK,
-  FARM_BEDS,
-  FARM_BOUNDARY,
-  FARM_CANALS,
-  FARM_FACILITIES,
-  INTERNAL_ROADS,
-  TREE_SPATIAL_MAP,
-  WATER_RESERVOIR,
-} from './data/farmMapData.js';
+import { DEFAULT_CADASTRAL_BENCHMARK, TREE_SPATIAL_MAP } from './data/farmMapData.js';
 import { INITIAL_TREES } from './data/mockTrees.js';
 
-const FARM_NAME = 'Durian Farm - Nông trại Sầu riêng Thông minh';
-const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'Matkhau@123';
+const FARM_NAME = 'Durian Farm — Nông trại Sầu riêng Thông minh';
+/** Chủ vườn khai 120 cây -> seed provision đủ 120 mã QR; 16 cây mock là cây đã kích hoạt. */
+const ESTIMATED_TREE_COUNT = 120;
+const SEED_EMAILS = ['manager@durian.vn', 'worker@durian.vn', 'viewer@durian.vn'];
+const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'thailevan1974';
 
 /** '15/09/2026' + '08:30' -> ISO. D3: DB chỉ lưu một cột timestamptz. */
 function toIso(date: string, time?: string): string {
@@ -32,32 +25,28 @@ async function main() {
 
   await withTransaction(async (client) => {
     const b = DEFAULT_CADASTRAL_BENCHMARK;
-    const mapLayers = {
-      boundary: FARM_BOUNDARY,
-      boundarySvgPath: BOUNDARY_SVG_PATH,
-      beds: FARM_BEDS,
-      canals: FARM_CANALS,
-      internalRoads: INTERNAL_ROADS,
-      facilities: FARM_FACILITIES,
-      waterReservoir: WATER_RESERVOIR,
-    };
-
-    await client.query('delete from farms where name = $1', [FARM_NAME]); // cascade xuống trees/history/users
+    // Dọn lần seed trước. Tìm theo email tài khoản chứ không theo tên vườn: đổi tên vườn
+    // vẫn phải dọn đúng row cũ, nếu không sẽ đụng unique(email). Cascade xuống trees/history/users.
+    await client.query(
+      `delete from farms where name = $1
+         or id in (select farm_id from users where email = any($2))`,
+      [FARM_NAME, SEED_EMAILS],
+    );
     const farm = await client.query(
       `insert into farms (name, tech_lead, offline_sync_enabled, benchmark_code, benchmark_name,
          benchmark_lat, benchmark_lng, benchmark_elevation_m, benchmark_datum, benchmark_zone,
-         benchmark_source, plot_number, address, map_layers)
+         benchmark_source, plot_number, address, estimated_tree_count)
        values ($1,$2,true,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`,
       [
-        FARM_NAME, 'Nguyễn Văn An (KTV trưởng ca)', b.code, b.name, b.lat, b.lng,
-        b.elevationMeters, b.datum, b.zone, b.source, b.plotNumber, b.address, JSON.stringify(mapLayers),
+        FARM_NAME, 'Lê Văn Thái', b.code, b.name, b.lat, b.lng,
+        b.elevationMeters, b.datum, b.zone, b.source, b.plotNumber, b.address, ESTIMATED_TREE_COUNT,
       ],
     );
     const farmId = farm.rows[0].id;
 
     const hash = await hashPassword(SEED_PASSWORD);
     const accounts = [
-      { email: 'manager@durian.vn', name: 'Nguyễn Văn An', role: 'manager', block: null },
+      { email: 'manager@durian.vn', name: 'Lê Văn Thái', role: 'manager', block: null },
       { email: 'worker@durian.vn', name: 'Trần Đình Trọng', role: 'worker', block: 'A' },
       { email: 'viewer@durian.vn', name: 'Khách tham quan', role: 'viewer', block: null },
     ];
@@ -79,8 +68,8 @@ async function main() {
         `insert into trees (farm_id, code, variety, planted_date, block, row_no, position_no, lat, lng,
            map_x, map_y, bed_name, mound_number, canopy_radius, status, health_score, soil_moisture,
            leaf_condition, flowering, flowering_stage, fruit_condition, fruit_count, height_meters,
-           trunk_diameter_cm, image_url, notes, last_updated, last_updated_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+           trunk_diameter_cm, image_url, notes, last_updated, last_updated_by, activated_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,now())
          returning id`,
         [
           farmId, t.code, t.variety, t.plantedDate,
@@ -115,7 +104,21 @@ async function main() {
       }
     }
 
+    // Chủ vườn khai 120 cây -> in sẵn 120 mã QR. 16 mã đầu đã là cây mock ở trên,
+    // phần còn lại là mã trống chờ quét (activated_at = null).
+    const provisioned = await client.query(
+      `with target as (
+         select 'SD-' || lpad(n::text, greatest(3, length(n::text)), '0') as code from generate_series(1, $2::int) as n
+       )
+       insert into trees (farm_id, code, status)
+       select $1, code, 'unknown' from target
+       on conflict (code) do nothing
+       returning code`,
+      [farmId, ESTIMATED_TREE_COUNT],
+    );
+
     console.log(`✓ Vườn ${farmId}`);
+    console.log(`✓ ${provisioned.rowCount} mã QR trống (tổng ước tính ${ESTIMATED_TREE_COUNT})`);
     console.log(`✓ ${treeCount} cây, ${historyCount} bản ghi lịch sử`);
     console.log(`✓ 3 tài khoản (mật khẩu: ${SEED_PASSWORD}): ${accounts.map((a) => a.email).join(', ')}`);
     console.log(`  cây đầu tiên: ${INITIAL_TREES[0].code}, ${ageFromPlantedDate(INITIAL_TREES[0].plantedDate)} tuổi`);

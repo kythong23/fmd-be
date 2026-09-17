@@ -7,7 +7,14 @@ import * as authService from '../services/authService.js';
 export const authRouter = Router();
 
 // 06_BACKEND §5: chống brute-force.
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false });
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Mặc định trả text/html tiếng Anh — ép về đúng format lỗi chung (04_API.md §4).
+  message: { error: { code: 'RATE_LIMITED', message: 'Thử sai quá nhiều lần. Đợi 15 phút rồi thử lại.' } },
+});
 
 authRouter.post('/login', loginLimiter, async (req, res, next) => {
   try {
@@ -34,7 +41,7 @@ authRouter.get('/me', requireAuth(), (req, res) => {
 authRouter.post('/logout', requireAuth(), async (req, res, next) => {
   try {
     await authService.logout(req.user!.id);
-    res.status(204).end();
+    res.json({ message: 'Đăng xuất thành công' });
   } catch (err) {
     next(err);
   }

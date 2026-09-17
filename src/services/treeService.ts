@@ -13,7 +13,7 @@ import type { createTreeSchema, treeListQuerySchema, updatePositionSchema, updat
 export const TREE_COLUMNS = `id, farm_id, code, variety, planted_date, block, row_no, position_no,
   lat, lng, map_x, map_y, bed_name, mound_number, canopy_radius, status, health_score, soil_moisture,
   leaf_condition, flowering, flowering_stage, fruit_condition, fruit_count, height_meters,
-  trunk_diameter_cm, image_url, notes, last_updated, last_updated_by, created_at`;
+  trunk_diameter_cm, image_url, notes, last_updated, last_updated_by, activated_at, created_at`;
 
 /** Hàng thô — cần cho check quyền (farm_id + block) trước khi map ra API shape. */
 export async function findTreeRow(code: string, client?: PoolClient) {
@@ -74,8 +74,8 @@ export async function createTree(client: PoolClient, farmId: string, input: Crea
     `insert into trees (farm_id, code, variety, planted_date, block, row_no, position_no, lat, lng,
        map_x, map_y, bed_name, mound_number, canopy_radius, status, health_score, soil_moisture,
        leaf_condition, flowering, flowering_stage, fruit_condition, fruit_count, height_meters,
-       trunk_diameter_cm, image_url, notes, last_updated, last_updated_by)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,now(),$27)
+       trunk_diameter_cm, image_url, notes, last_updated, last_updated_by, activated_at)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,now(),$27,now())
      returning ${TREE_COLUMNS}`,
     [
       farmId, code, input.variety, input.plantedDate,
@@ -115,7 +115,8 @@ export async function updateTree(code: string, input: UpdateInput, actor: string
   }
   // health_score cố tình KHÔNG có ở đây: chỉ POST /history mới được đổi (06_BACKEND §12).
   if (!sets.length) return findTreeRow(code);
-  sets.push('last_updated = now()', `last_updated_by = $${params.push(actor)}`);
+  // Lần đầu có người quét QR và điền thông tin thì cây coi như đã kích hoạt.
+  sets.push('last_updated = now()', 'activated_at = coalesce(activated_at, now())', `last_updated_by = $${params.push(actor)}`);
   const { rows } = await query(
     `update trees set ${sets.join(', ')} where code = $${params.push(code)} returning ${TREE_COLUMNS}`,
     params,

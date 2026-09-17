@@ -9,9 +9,10 @@ export function toTree(row: any, history?: HistoryRecord[], gallery?: string[]):
   return {
     id: row.id,
     code: row.code,
-    variety: row.variety,
-    age: ageFromPlantedDate(row.planted_date),
-    plantedDate: row.planted_date,
+    variety: row.variety ?? undefined,
+    age: row.planted_date ? ageFromPlantedDate(row.planted_date) : 0,
+    plantedDate: row.planted_date ?? undefined,
+    activated: row.activated_at !== null && row.activated_at !== undefined,
     location: {
       block: row.block ?? '',
       row: row.row_no ?? '',
@@ -79,7 +80,7 @@ export function toFarm(row: any): Farm {
       updatedAt: iso(row.benchmark_updated_at),
       source: row.benchmark_source ?? 'default',
     },
-    mapLayers: row.map_layers ?? {},
+    estimatedTreeCount: Number(row.estimated_tree_count ?? 0),
     updatedAt: iso(row.updated_at),
   };
 }

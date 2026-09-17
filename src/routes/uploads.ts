@@ -12,7 +12,13 @@ export const uploadsRouter = Router();
 // 06_BACKEND §5: chỉ ảnh, <= 10 MB, rate limit chống đầy storage.
 const MAX_BYTES = 10 * 1024 * 1024;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_BYTES, files: 5 } });
-const uploadLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Tải ảnh quá nhanh. Đợi một phút rồi thử lại.' } },
+});
 
 /** Kiểm tra magic bytes, KHÔNG tin Content-Type client gửi. */
 function sniffImage(buf: Buffer): 'jpg' | 'png' | 'webp' | null {

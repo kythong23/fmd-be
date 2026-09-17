@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { badRequest } from '../errors.js';
 import { requireRole } from '../middleware/auth.js';
-import { benchmarkSchema, farmSettingsSchema } from '../schemas.js';
+import { benchmarkSchema, farmSettingsSchema, provisionTreesSchema } from '../schemas.js';
 import * as farms from '../services/farmService.js';
 
 export const farmRouter = Router();
@@ -39,6 +39,16 @@ farmRouter.patch('/benchmark', requireRole('manager'), async (req, res, next) =>
 farmRouter.patch('/settings', requireRole('manager'), async (req, res, next) => {
   try {
     res.json(await farms.updateSettings(farmIdOf(req), farmSettingsSchema.parse(req.body)));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Khai tổng số cây ước tính -> sinh sẵn mã cây để in QR hàng loạt. */
+farmRouter.post('/trees/provision', requireRole('manager'), async (req, res, next) => {
+  try {
+    const { estimatedTreeCount } = provisionTreesSchema.parse(req.body);
+    res.status(201).json(await farms.provisionTrees(farmIdOf(req), estimatedTreeCount));
   } catch (err) {
     next(err);
   }
