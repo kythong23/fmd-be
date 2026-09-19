@@ -5,7 +5,7 @@
 import { pool, withTransaction } from '../db/pool.js';
 import { ageFromPlantedDate } from '../domain/history.js';
 import { hashPassword } from '../services/authService.js';
-import { DEFAULT_CADASTRAL_BENCHMARK, TREE_SPATIAL_MAP } from './data/farmMapData.js';
+import { DEFAULT_CADASTRAL_BENCHMARK, TREE_SPATIAL_MAP, type TreeSpatialData } from './data/farmMapData.js';
 import { INITIAL_TREES } from './data/mockTrees.js';
 
 const FARM_NAME = 'Durian Farm — Nông trại Sầu riêng Thông minh';
@@ -19,6 +19,10 @@ function toIso(date: string, time?: string): string {
   const [d, m, y] = date.split('/');
   return new Date(`${y}-${m}-${d}T${time ?? '00:00'}:00+07:00`).toISOString();
 }
+
+/** Liếp/mô suy ra từ block-row-position của sơ đồ vườn, khỏi khai trùng lặp. */
+const bedName = (s?: TreeSpatialData) => (s ? `Liếp ${s.block}-${s.row.padStart(2, '0')}` : null);
+const moundNumber = (s?: TreeSpatialData) => (s ? `Mô ${s.position.padStart(2, '0')}` : null);
 
 async function main() {
   if (process.env.NODE_ENV === 'production') throw new Error('Không chạy seed trên production');
@@ -73,9 +77,11 @@ async function main() {
          returning id`,
         [
           farmId, t.code, t.variety, t.plantedDate,
-          t.location?.block ?? null, t.location?.row ?? null, t.location?.position ?? null,
-          t.location?.coordinates?.lat ?? null, t.location?.coordinates?.lng ?? null,
-          spatial?.x ?? null, spatial?.y ?? null, spatial?.bedName ?? null, spatial?.moundNumber ?? null,
+          spatial?.block ?? t.location?.block ?? null, spatial?.row ?? t.location?.row ?? null,
+          spatial?.position ?? t.location?.position ?? null,
+          spatial?.lat ?? t.location?.coordinates?.lat ?? null,
+          spatial?.lng ?? t.location?.coordinates?.lng ?? null,
+          spatial?.x ?? null, spatial?.y ?? null, bedName(spatial), moundNumber(spatial),
           spatial?.canopyRadius ?? 25,
           t.status, t.healthScore, t.soilMoisture, t.leafCondition, t.flowering, t.floweringStage ?? null,
           t.fruitCondition, t.fruitCount ?? null, t.heightMeters ?? null, t.trunkDiameterCm ?? null,
@@ -116,6 +122,17 @@ async function main() {
        returning code`,
       [farmId, ESTIMATED_TREE_COUNT],
     );
+
+    // Sơ đồ vườn có toạ độ cho cả các mã chưa kích hoạt -> gán luôn vị trí cho chúng.
+    for (const s of Object.values(TREE_SPATIAL_MAP)) {
+      await client.query(
+        `update trees set block=$3, row_no=$4, position_no=$5, lat=$6, lng=$7, map_x=$8, map_y=$9,
+           bed_name=$10, mound_number=$11, canopy_radius=$12
+         where farm_id=$1 and code=$2`,
+        [farmId, s.id, s.block, s.row, s.position, s.lat, s.lng, s.x, s.y,
+          bedName(s), moundNumber(s), s.canopyRadius],
+      );
+    }
 
     console.log(`✓ Vườn ${farmId}`);
     console.log(`✓ ${provisioned.rowCount} mã QR trống (tổng ước tính ${ESTIMATED_TREE_COUNT})`);

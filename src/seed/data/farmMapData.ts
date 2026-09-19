@@ -11,8 +11,11 @@ export interface TreeSpatialData {
   id: string;
   x: number;
   y: number;
-  bedName: string; // e.g. "Liếp A-02"
-  moundNumber: string; // "Mô 12"
+  lat: number;
+  lng: number;
+  block: string;
+  row: string;
+  position: string;
   canopyRadius: number; // visual canopy radius
 }
 
@@ -55,24 +58,38 @@ export const FARM_BOUNDARY: FarmBoundaryPoint[] = [
 
 export const BOUNDARY_SVG_PATH = "M 60,70 L 940,55 L 960,620 L 540,650 L 80,640 L 40,350 Z";
 
-// Spatial mapping of each of the 16 trees in mock data to realistic plantation beds
+// Vị trí thực tế của 30 cây theo sơ đồ vườn (map x/y + toạ độ GPS + block/hàng/vị trí).
 export const TREE_SPATIAL_MAP: Record<string, TreeSpatialData> = {
-  'SD-001': { id: 'SD-001', x: 680, y: 535, bedName: 'Liếp A-01', moundNumber: 'Mô 12', canopyRadius: 26 },
-  'SD-002': { id: 'SD-002', x: 790, y: 535, bedName: 'Liếp A-01', moundNumber: 'Mô 14', canopyRadius: 28 },
-  'SD-003': { id: 'SD-003', x: 650, y: 445, bedName: 'Liếp A-02', moundNumber: 'Mô 02', canopyRadius: 24 },
-  'SD-004': { id: 'SD-004', x: 760, y: 445, bedName: 'Liếp A-02', moundNumber: 'Mô 05', canopyRadius: 25 },
-  'SD-005': { id: 'SD-005', x: 870, y: 445, bedName: 'Liếp A-02', moundNumber: 'Mô 08', canopyRadius: 24 },
-  'SD-006': { id: 'SD-006', x: 690, y: 220, bedName: 'Liếp B-01', moundNumber: 'Mô 03', canopyRadius: 22 },
-  'SD-007': { id: 'SD-007', x: 830, y: 220, bedName: 'Liếp B-01', moundNumber: 'Mô 09', canopyRadius: 31 },
-  'SD-008': { id: 'SD-008', x: 660, y: 135, bedName: 'Liếp B-02', moundNumber: 'Mô 04', canopyRadius: 24 },
-  'SD-009': { id: 'SD-009', x: 780, y: 135, bedName: 'Liếp B-02', moundNumber: 'Mô 11', canopyRadius: 25 },
-  'SD-016': { id: 'SD-016', x: 890, y: 135, bedName: 'Liếp B-02', moundNumber: 'Mô 16', canopyRadius: 24 },
-  'SD-010': { id: 'SD-010', x: 190, y: 515, bedName: 'Liếp C-01', moundNumber: 'Mô 02', canopyRadius: 28 },
-  'SD-011': { id: 'SD-011', x: 310, y: 515, bedName: 'Liếp C-01', moundNumber: 'Mô 07', canopyRadius: 23 },
-  'SD-012': { id: 'SD-012', x: 150, y: 365, bedName: 'Liếp C-02', moundNumber: 'Mô 05', canopyRadius: 25 },
-  'SD-013': { id: 'SD-013', x: 270, y: 365, bedName: 'Liếp C-02', moundNumber: 'Mô 10', canopyRadius: 34 },
-  'SD-014': { id: 'SD-014', x: 170, y: 205, bedName: 'Liếp C-03', moundNumber: 'Mô 03', canopyRadius: 21 },
-  'SD-015': { id: 'SD-015', x: 300, y: 205, bedName: 'Liếp C-03', moundNumber: 'Mô 08', canopyRadius: 27 },
+  'SD-001': { id: 'SD-001', x: 285, y: 140, lat: 10.4612615, lng: 107.2152354, block: 'A', row: '1', position: '1', canopyRadius: 26 },
+  'SD-002': { id: 'SD-002', x: 325, y: 135, lat: 10.4613385, lng: 107.2154832, block: 'A', row: '1', position: '2', canopyRadius: 28 },
+  'SD-003': { id: 'SD-003', x: 365, y: 130, lat: 10.4614154, lng: 107.215731, block: 'A', row: '1', position: '3', canopyRadius: 24 },
+  'SD-004': { id: 'SD-004', x: 405, y: 126, lat: 10.4614769, lng: 107.2159788, block: 'A', row: '1', position: '4', canopyRadius: 25 },
+  'SD-005': { id: 'SD-005', x: 445, y: 122, lat: 10.4615385, lng: 107.2162265, block: 'A', row: '1', position: '5', canopyRadius: 24 },
+  'SD-006': { id: 'SD-006', x: 485, y: 118, lat: 10.4616, lng: 107.2164743, block: 'A', row: '1', position: '6', canopyRadius: 22 },
+  'SD-007': { id: 'SD-007', x: 525, y: 115, lat: 10.4616462, lng: 107.2167221, block: 'A', row: '1', position: '7', canopyRadius: 31 },
+  'SD-008': { id: 'SD-008', x: 565, y: 112, lat: 10.4616923, lng: 107.2169699, block: 'A', row: '1', position: '8', canopyRadius: 24 },
+  'SD-009': { id: 'SD-009', x: 648, y: 126, lat: 10.4614769, lng: 107.2174841, block: 'A', row: '1', position: '9', canopyRadius: 25 },
+  'SD-010': { id: 'SD-010', x: 706, y: 150, lat: 10.4611077, lng: 107.2178434, block: 'A', row: '1', position: '10', canopyRadius: 28 },
+  'SD-011': { id: 'SD-011', x: 280, y: 205, lat: 10.4602615, lng: 107.2152044, block: 'B', row: '2', position: '1', canopyRadius: 23 },
+  'SD-012': { id: 'SD-012', x: 320, y: 200, lat: 10.4603385, lng: 107.2154522, block: 'B', row: '2', position: '2', canopyRadius: 25 },
+  'SD-013': { id: 'SD-013', x: 360, y: 196, lat: 10.4604, lng: 107.2157, block: 'B', row: '2', position: '3', canopyRadius: 34 },
+  'SD-014': { id: 'SD-014', x: 400, y: 192, lat: 10.4604615, lng: 107.2159478, block: 'B', row: '2', position: '4', canopyRadius: 21 },
+  'SD-015': { id: 'SD-015', x: 440, y: 188, lat: 10.4605231, lng: 107.2161956, block: 'B', row: '2', position: '5', canopyRadius: 27 },
+  'SD-016': { id: 'SD-016', x: 480, y: 185, lat: 10.4605692, lng: 107.2164434, block: 'B', row: '2', position: '6', canopyRadius: 24 },
+  'SD-017': { id: 'SD-017', x: 520, y: 182, lat: 10.4606154, lng: 107.2166912, block: 'B', row: '2', position: '7', canopyRadius: 25 },
+  'SD-018': { id: 'SD-018', x: 560, y: 178, lat: 10.4606769, lng: 107.2169389, block: 'B', row: '2', position: '8', canopyRadius: 25 },
+  'SD-019': { id: 'SD-019', x: 645, y: 190, lat: 10.4604923, lng: 107.2174655, block: 'B', row: '2', position: '9', canopyRadius: 25 },
+  'SD-020': { id: 'SD-020', x: 712, y: 205, lat: 10.4602615, lng: 107.2178805, block: 'B', row: '2', position: '10', canopyRadius: 25 },
+  'SD-021': { id: 'SD-021', x: 290, y: 270, lat: 10.4592615, lng: 107.2152664, block: 'C', row: '3', position: '1', canopyRadius: 25 },
+  'SD-022': { id: 'SD-022', x: 330, y: 266, lat: 10.4593231, lng: 107.2155142, block: 'C', row: '3', position: '2', canopyRadius: 25 },
+  'SD-023': { id: 'SD-023', x: 370, y: 262, lat: 10.4593846, lng: 107.2157619, block: 'C', row: '3', position: '3', canopyRadius: 25 },
+  'SD-024': { id: 'SD-024', x: 410, y: 258, lat: 10.4594462, lng: 107.2160097, block: 'C', row: '3', position: '4', canopyRadius: 25 },
+  'SD-025': { id: 'SD-025', x: 450, y: 254, lat: 10.4595077, lng: 107.2162575, block: 'C', row: '3', position: '5', canopyRadius: 25 },
+  'SD-026': { id: 'SD-026', x: 490, y: 250, lat: 10.4595692, lng: 107.2165053, block: 'C', row: '3', position: '6', canopyRadius: 25 },
+  'SD-027': { id: 'SD-027', x: 530, y: 247, lat: 10.4596154, lng: 107.2167531, block: 'C', row: '3', position: '7', canopyRadius: 25 },
+  'SD-028': { id: 'SD-028', x: 570, y: 243, lat: 10.4596769, lng: 107.2170009, block: 'C', row: '3', position: '8', canopyRadius: 25 },
+  'SD-029': { id: 'SD-029', x: 648, y: 245, lat: 10.4596462, lng: 107.2174841, block: 'C', row: '3', position: '9', canopyRadius: 25 },
+  'SD-030': { id: 'SD-030', x: 716, y: 246, lat: 10.4596308, lng: 107.2179053, block: 'C', row: '3', position: '10', canopyRadius: 25 },
 };
 
 // Farm Facilities

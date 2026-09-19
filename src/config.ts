@@ -17,5 +17,8 @@ export const config = {
   uploadDir: process.env.UPLOAD_DIR ?? 'uploads',
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
   isProd: process.env.NODE_ENV === 'production',
+  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
+  logGetBody: process.env.LOG_GET_BODY === 'true',
+  enableLogUi: process.env.ENABLE_LOG_UI !== 'false',
   enableDocs: process.env.ENABLE_DOCS ? process.env.ENABLE_DOCS === 'true' : process.env.NODE_ENV !== 'production',
 };

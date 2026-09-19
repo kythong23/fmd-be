@@ -27,6 +27,29 @@ Tài khoản seed (mật khẩu `Matkhau@123`, đổi bằng `SEED_PASSWORD`):
 | worker@durian.vn | worker | A |
 | viewer@durian.vn | viewer | — |
 
+## Chạy bằng Docker (dùng khi deploy)
+
+Dev hằng ngày vẫn dùng `npm run dev`. Docker để đóng gói mang lên máy chủ.
+
+```bash
+cp .env.example .env        # sửa JWT_SECRET, DB_PASSWORD, CORS_ORIGIN
+docker compose up -d --build   # migrate tự chạy khi container khởi động
+docker compose logs -f api
+```
+
+| Việc | Lệnh |
+|---|---|
+| Deploy bản mới | `git pull && docker compose up -d --build` |
+| Xem log | `docker compose logs -f api` |
+| Vào psql | `docker compose exec db psql -U postgres fdm` |
+| Backup DB | `docker compose exec -T db pg_dump -U postgres fdm > backup.sql` |
+| Seed dữ liệu mẫu | `docker compose exec api node dist/seed/seed.js` |
+| Dừng (giữ dữ liệu) | `docker compose down` |
+
+⚠️ **Không dùng `docker compose down -v`** — cờ `-v` xoá volume `pgdata` và `uploads`, mất toàn bộ dữ liệu và ảnh.
+
+Ảnh lưu ở volume `uploads`, DB ở volume `pgdata` — cả hai nằm ngoài container nên rebuild không ảnh hưởng.
+
 ## Endpoint (`/api/v1`)
 
 Mọi route trừ `/auth/login` và `/auth/refresh` đều cần `Authorization: Bearer <accessToken>` (D1 — không có route đọc ẩn danh).

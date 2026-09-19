@@ -8,6 +8,8 @@ export function notFoundHandler(_req: Request, res: Response) {
 }
 
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
+  // apiLog đọc lại ở res.on('finish') — stack chỉ nằm trong DB, không trả ra client.
+  res.locals.errorStack = err instanceof Error ? err.stack : String(err);
   if (err instanceof ZodError) {
     return res.status(422).json({
       error: { code: 'VALIDATION_ERROR', message: 'Dữ liệu không hợp lệ', details: err.flatten() },

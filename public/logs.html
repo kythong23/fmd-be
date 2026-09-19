@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FDM · API Log</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#272b35; --text:#e6e8ee; --muted:#8b91a1; --ok:#3fb950; --err:#f85149; --warn:#d29922; --accent:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; background:var(--bg); color:var(--text); }
+  header { display:flex; gap:8px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  h1 { font-size:14px; margin:0 12px 0 0; font-weight:600; }
+  input, button, select { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 10px; font:inherit; }
+  button { cursor:pointer; } button:hover { border-color:var(--accent); }
+  #auth { display:flex; gap:8px; align-items:center; }
+  label { color:var(--muted); display:flex; align-items:center; gap:5px; }
+  main { display:grid; grid-template-columns:minmax(380px,1fr) minmax(420px,1fr); height:calc(100vh - 53px); }
+  @media (max-width:900px){ main { grid-template-columns:1fr; height:auto; } }
+  section { overflow:auto; padding:10px 14px; }
+  #detail { border-left:1px solid var(--line); }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:5px 6px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  tr.row { cursor:pointer; } tr.row:hover td { background:#1c2029; } tr.sel td { background:#1f2530; }
+  .st { font-weight:600; } .s2 { color:var(--ok); } .s4 { color:var(--warn); } .s5 { color:var(--err); }
+  .muted { color:var(--muted); } .path { white-space:normal; word-break:break-all; }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:10px; overflow:auto; max-height:320px; white-space:pre-wrap; word-break:break-word; }
+  h2 { font-size:13px; margin:14px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .tag { display:inline-block; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:1px 9px; margin:0 4px 4px 0; cursor:pointer; }
+  .tag:hover { border-color:var(--accent); }
+  .step { border-left:2px solid var(--line); padding:0 0 10px 12px; margin-left:6px; }
+  .step.bad { border-color:var(--err); }
+  .step > div:first-child { cursor:pointer; }
+  .hide { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FDM · API Log</h1>
+  <span id="auth"></span>
+  <input id="q" placeholder="lọc path / email" size="18" />
+  <input id="subject" placeholder="tree:DR-001" size="14" />
+  <label><input type="checkbox" id="onlyErrors" checked /> chỉ lỗi</label>
+  <button id="reload">Tải lại</button>
+  <span id="info" class="muted"></span>
+</header>
+<main>
+  <section id="list"></section>
+  <section id="detail"><p class="muted">Chọn một request để xem payload / response và trace ngược.</p></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const token = () => localStorage.getItem('fdm_log_token') || '';
+const api = (p) => fetch('/api/v1' + p, { headers: { Authorization: 'Bearer ' + token() } }).then(async (r) => {
+  const b = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((b.error && b.error.message) || r.status);
+  return b;
+});
+const esc = (s) => String(s === null || s === undefined ? '' : s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+const time = (ts) => new Date(ts).toLocaleString('vi-VN', { hour12: false });
+const cls = (s) => 'st s' + String(s)[0];
+
+function renderAuth() {
+  $('auth').innerHTML = token()
+    ? '<button id="logout">Đăng xuất</button>'
+    : '<input id="email" placeholder="email" size="16"><input id="pw" type="password" placeholder="mật khẩu" size="12"><button id="login">Đăng nhập</button>';
+  if (token()) {
+    $('logout').onclick = () => { localStorage.removeItem('fdm_log_token'); renderAuth(); load(); };
+    return;
+  }
+  $('login').onclick = async () => {
+    const r = await fetch('/api/v1/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $('email').value, password: $('pw').value }),
+    });
+    const b = await r.json();
+    if (!r.ok) return alert((b.error && b.error.message) || 'Đăng nhập thất bại');
+    localStorage.setItem('fdm_log_token', b.accessToken);
+    renderAuth(); load();
+  };
+}
+
+async function load() {
+  if (!token()) { $('list').innerHTML = '<p class="muted">Đăng nhập bằng tài khoản manager.</p>'; return; }
+  const qs = new URLSearchParams({ limit: '100' });
+  if ($('q').value.trim()) qs.set('q', $('q').value.trim());
+  if ($('subject').value.trim()) qs.set('subject', $('subject').value.trim());
+  if ($('onlyErrors').checked) qs.set('onlyErrors', 'true');
+  try {
+    const { items } = await api('/logs?' + qs);
+    $('info').textContent = items.length + ' dòng';
+    $('list').innerHTML = '<table>' + items.map((r) => `
+      <tr class="row" data-id="${r.id}">
+        <td class="muted">${time(r.ts)}</td>
+        <td class="${cls(r.status)}">${r.status}</td>
+        <td>${r.method}</td>
+        <td class="path">${esc(r.path)}</td>
+        <td class="muted">${r.duration_ms}ms</td>
+        <td class="muted">${esc(r.user_email || '-')}</td>
+      </tr>`).join('') + '</table>';
+    $('list').querySelectorAll('tr.row').forEach((tr) => { tr.onclick = () => showLog(tr.dataset.id, tr); });
+  } catch (e) { $('list').innerHTML = '<p class="s5">' + esc(e.message) + '</p>'; }
+}
+
+function block(title, value) {
+  if (value === null || value === undefined) return '';
+  return `<h2>${title}</h2><pre>${esc(typeof value === 'string' ? value : JSON.stringify(value, null, 2))}</pre>`;
+}
+
+async function showLog(id, tr) {
+  $('list').querySelectorAll('tr.row').forEach((x) => x.classList.remove('sel'));
+  if (tr) tr.classList.add('sel');
+  $('detail').innerHTML = '<p class="muted">Đang tải…</p>';
+  const { log } = await api('/logs/' + id);
+  $('detail').innerHTML = `
+    <div><span class="${cls(log.status)}">${log.status}</span> <b>${log.method}</b> ${esc(log.path)}</div>
+    <div class="muted">${time(log.ts)} · ${log.duration_ms}ms · ${esc(log.user_email || 'ẩn danh')} · ${esc(log.ip || '')}</div>
+    <div class="muted">request-id: ${esc(log.request_id)}</div>
+    <div style="margin:8px 0">${(log.subjects || []).map((s) => `<span class="tag" data-s="${esc(s)}">${esc(s)}</span>`).join('')}</div>
+    ${log.error_code ? `<div class="s5">Lỗi: ${esc(log.error_code)}</div>` : ''}
+    ${block('Payload', log.payload)}
+    ${block('Response', log.response)}
+    ${log.response === null && log.status < 400 ? '<p class="muted">GET thành công không lưu response (quá lớn). Bật LOG_GET_BODY=true nếu cần debug.</p>' : ''}
+    ${block('Stack', log.error_stack)}
+    <h2>Trace ngược</h2><div id="trace" class="muted">Đang tải…</div>`;
+  $('detail').querySelectorAll('.tag').forEach((t) => {
+    t.onclick = () => { $('subject').value = t.dataset.s; $('onlyErrors').checked = false; load(); };
+  });
+  trace(id);
+}
+
+async function trace(id) {
+  try {
+    const { subjects, items } = await api('/logs/' + id + '/trace');
+    if (!items.length) { $('trace').textContent = 'Không có request nào khác chạm dữ liệu này.'; return; }
+    $('trace').innerHTML = `<div class="muted">theo: ${subjects.map(esc).join(', ')}</div>` + items.map((r, i) => `
+      <div class="step ${r.status >= 400 ? 'bad' : ''}">
+        <div data-i="${i}">${i + 1}. <span class="${cls(r.status)}">${r.status}</span> <b>${r.method}</b> ${esc(r.path)}
+          <span class="muted">· ${time(r.ts)} · ${esc(r.user_email || '-')}${r.error_code ? ' · ' + esc(r.error_code) : ''}</span>
+        </div>
+        <div class="hide" id="tb${i}">${block('Payload', r.payload)}${block('Response', r.response)}</div>
+      </div>`).join('');
+    $('trace').querySelectorAll('[data-i]').forEach((d) => {
+      d.onclick = () => $('tb' + d.dataset.i).classList.toggle('hide');
+    });
+  } catch (e) { $('trace').innerHTML = '<span class="s5">' + esc(e.message) + '</span>'; }
+}
+
+$('reload').onclick = load;
+[$('q'), $('subject')].forEach((el) => { el.onkeydown = (e) => { if (e.key === 'Enter') load(); }; });
+$('onlyErrors').onchange = load;
+renderAuth(); load();
+</script>
+</body>
+</html>

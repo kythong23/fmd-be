@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import cors from 'cors';
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { config } from './config.js';
 import { buildOpenApiDocument } from './openapi.js';
+import { apiLogger, startApiLogCleanup } from './middleware/apiLog.js';
 import { requireAuth } from './middleware/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { authRouter } from './routes/auth.js';
 import { farmRouter } from './routes/farm.js';
 import { historyRouter } from './routes/history.js';
+import { logsRouter } from './routes/logs.js';
 import { qrRouter } from './routes/qr.js';
 import { treesRouter } from './routes/trees.js';
 import { uploadsRouter } from './routes/uploads.js';
@@ -43,6 +46,8 @@ export function createApp() {
     next();
   });
 
+  app.use(apiLogger());
+
   app.get('/health', (_req, res) => res.json({ ok: true }));
   app.use('/uploads', express.static(config.uploadDir, { maxAge: '30d', index: false }));
 
@@ -61,9 +66,16 @@ export function createApp() {
   api.use('/trees', treesRouter);
   api.use('/farm', farmRouter);
   api.use('/uploads', uploadsRouter);
+  api.use('/logs', logsRouter);
   api.use(historyRouter); // /trees/:code/history, /activity
   api.use(qrRouter); // /trees/:code/qr, /qr/batch
   app.use('/api/v1', api);
+
+  // UI xem/trace log — HTML tĩnh, tự gọi /api/v1/logs bằng token manager.
+  if (config.enableLogUi) {
+    app.get('/logs', (_req, res) => res.sendFile(join(process.cwd(), 'public', 'logs.html')));
+  }
+  startApiLogCleanup();
 
   app.use(notFoundHandler);
   app.use(errorHandler);
