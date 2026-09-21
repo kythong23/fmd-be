@@ -1,6 +1,6 @@
 /** snake_case (DB) <-> camelCase (API) — 04_API.md §0: chỉ map ở MỘT chỗ duy nhất. */
 import { ageFromPlantedDate } from './domain/history.js';
-import type { DurianTree, Farm, HistoryRecord } from './types/durian.js';
+import type { DurianTree, Farm, HistoryRecord, Material, MaterialUsage, Task, UserRole } from './types/durian.js';
 
 const iso = (v: Date | string | null): string => (v instanceof Date ? v.toISOString() : (v ?? ''));
 const num = (v: unknown): number | undefined => (v === null || v === undefined ? undefined : Number(v));
@@ -57,8 +57,51 @@ export function toHistory(row: any): HistoryRecord {
     actionTaken: row.action_taken ?? undefined,
     notes: row.notes ?? undefined,
     measurements: row.measurements ?? undefined,
+    materials: row.materials ?? [],
   };
 }
+
+/** D9: worker/viewer không thấy giá — bỏ hẳn field, không trả 0 (0 đồng trông như dữ liệu thật). */
+export function toMaterial(row: any, role: UserRole): Material {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    type: row.type,
+    unit: row.unit,
+    ...(role === 'manager' ? { unitPrice: num(row.unit_price) ?? null } : {}),
+    active: !!row.active,
+    notes: row.notes ?? undefined,
+    updatedAt: iso(row.updated_at),
+    createdAt: iso(row.created_at),
+  };
+}
+
+export function toTask(row: any, role: UserRole): Task {
+  const planned: MaterialUsage[] = row.planned_materials ?? [];
+  return {
+    id: row.id,
+    title: row.title,
+    type: row.type,
+    scope: row.scope,
+    block: row.block ?? null,
+    treeCode: row.tree_code ?? null,
+    dueDate: row.due_date,
+    status: row.status,
+    assigneeId: row.assignee_id ?? null,
+    assigneeName: row.assignee_name ?? null,
+    plannedMaterials: role === 'manager' ? planned : planned.map(({ unitPrice, ...m }) => m),
+    ...(role === 'manager' ? { estimatedCost: costOf(planned) } : {}),
+    notes: row.notes ?? undefined,
+    doneHistoryId: row.done_history_id ?? null,
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+/** Tổng tiền luôn tính khi đọc, không lưu ở đâu (D8). */
+export const costOf = (items: MaterialUsage[]): number =>
+  items.reduce((sum, m) => sum + Number(m.quantity) * Number(m.unitPrice ?? 0), 0);
 
 export function toFarm(row: any): Farm {
   return {

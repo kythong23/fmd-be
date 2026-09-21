@@ -6,6 +6,7 @@ import { pool, withTransaction } from '../db/pool.js';
 import { ageFromPlantedDate } from '../domain/history.js';
 import { hashPassword } from '../services/authService.js';
 import { DEFAULT_CADASTRAL_BENCHMARK, TREE_SPATIAL_MAP, type TreeSpatialData } from './data/farmMapData.js';
+import { SEED_MATERIALS } from './data/materials.js';
 import { INITIAL_TREES } from './data/mockTrees.js';
 
 const FARM_NAME = 'Durian Farm — Nông trại Sầu riêng Thông minh';
@@ -134,7 +135,43 @@ async function main() {
       );
     }
 
+    // Danh mục vật tư — không có nó thì form cập nhật không chọn được gì, báo cáo trống.
+    const materialIds: Record<string, string> = {};
+    for (const m of SEED_MATERIALS) {
+      const r = await client.query(
+        `insert into materials (farm_id, code, name, type, unit, unit_price, notes)
+         values ($1,$2,$3,$4,$5,$6,$7) returning id`,
+        [farmId, m.code, m.name, m.type, m.unit, m.unitPrice, m.notes ?? null],
+      );
+      materialIds[m.code] = r.rows[0].id;
+    }
+
+    // Vài task mẫu quanh hôm nay để màn /plans có gì để nhìn.
+    const day = (offset: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      return d.toISOString().slice(0, 10);
+    };
+    const plannedNpk = JSON.stringify([
+      { materialId: materialIds['PB-001'], code: 'PB-001', name: 'NPK 16-16-8', quantity: 0.5, unit: 'kg', unitPrice: 24000 },
+    ]);
+    const sampleTasks: [string, string, string, string | null, string, string, string][] = [
+      ['Bón thúc đợt 2 lô A', 'fertilizing', 'block', 'A', day(0), 'todo', plannedNpk],
+      ['Kiểm tra sức khoẻ toàn vườn', 'health_check', 'farm', null, day(1), 'todo', '[]'],
+      ['Phun phòng nấm Phytophthora lô B', 'spraying', 'block', 'B', day(3), 'todo', '[]'],
+      ['Tưới bổ sung lô C', 'watering', 'block', 'C', day(-2), 'doing', '[]'],
+      ['Cắt tỉa cành lô A', 'pruning', 'block', 'A', day(6), 'todo', '[]'],
+    ];
+    for (const [title, type, scope, block, dueDate, status, planned] of sampleTasks) {
+      await client.query(
+        `insert into tasks (farm_id, title, type, scope, block, due_date, status, assignee_id, planned_materials, created_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [farmId, title, type, scope, block, dueDate, status, block === 'A' ? userIds.worker : null, planned, userIds.manager],
+      );
+    }
+
     console.log(`✓ Vườn ${farmId}`);
+    console.log(`✓ ${SEED_MATERIALS.length} vật tư, ${sampleTasks.length} kế hoạch mẫu`);
     console.log(`✓ ${provisioned.rowCount} mã QR trống (tổng ước tính ${ESTIMATED_TREE_COUNT})`);
     console.log(`✓ ${treeCount} cây, ${historyCount} bản ghi lịch sử`);
     console.log(`✓ 3 tài khoản (mật khẩu: ${SEED_PASSWORD}): ${accounts.map((a) => a.email).join(', ')}`);

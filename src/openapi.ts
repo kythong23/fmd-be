@@ -29,6 +29,9 @@ const AuthUser = registry.register('AuthUser', s.authUserSchema);
 const AuthTokens = registry.register('AuthTokens', s.authTokensSchema);
 const ApiError = registry.register('ApiError', s.apiErrorSchema);
 const QrItem = registry.register('QrItem', s.qrItemSchema);
+const Material = registry.register('Material', s.materialSchema);
+const Task = registry.register('Task', s.taskSchema);
+const ReportSummary = registry.register('ReportSummary', s.reportSummarySchema);
 
 const json = (schema: z.ZodTypeAny, description: string) => ({
   description,
@@ -293,6 +296,136 @@ route({
   responses: { 200: json(z.object({ items: z.array(QrItem) }), 'Danh sách QR'), ...AUTH_ERRORS },
 });
 
+// ── Vật tư / Kế hoạch / Báo cáo (MVP+ — 09_DECISIONS D7) ─────────────────────
+const idParam = z.object({ id: z.string().uuid().openapi({ param: { name: 'id', in: 'path' } }) });
+
+route({
+  method: 'get',
+  path: '/materials',
+  tags: ['Materials'],
+  summary: 'Danh mục vật tư',
+  description: '`unitPrice` chỉ có trong response của `manager` (D9). `active` mặc định `true`; `all` để xem cả vật tư đã ngừng.',
+  request: { query: s.materialQuerySchema },
+  responses: { 200: json(z.object({ items: z.array(Material) }), 'Danh mục vật tư'), ...AUTH_ERRORS },
+});
+
+route({
+  method: 'post',
+  path: '/materials',
+  tags: ['Materials'],
+  summary: 'Thêm vật tư (chỉ `manager`)',
+  request: { body: { content: { 'application/json': { schema: s.createMaterialSchema } } } },
+  responses: { 201: json(Material, 'Vật tư vừa tạo'), ...AUTH_ERRORS, 409: err('Trùng mã vật tư trong vườn') },
+});
+
+route({
+  method: 'patch',
+  path: '/materials/{id}',
+  tags: ['Materials'],
+  summary: 'Sửa vật tư / đổi đơn giá (chỉ `manager`)',
+  description: 'Đổi giá không ảnh hưởng báo cáo kỳ cũ — lịch sử đã snapshot giá lúc sử dụng (D8).',
+  request: { params: idParam, body: { content: { 'application/json': { schema: s.updateMaterialSchema } } } },
+  responses: { 200: json(Material, 'Vật tư sau khi sửa'), ...AUTH_ERRORS, 404: err('Không tìm thấy vật tư') },
+});
+
+route({
+  method: 'delete',
+  path: '/materials/{id}',
+  tags: ['Materials'],
+  summary: 'Ngừng dùng vật tư (soft-delete, chỉ `manager`)',
+  description: 'Set `active=false`, KHÔNG xoá dòng — `materialId` trong lịch sử phải còn tra ngược được (D8).',
+  request: { params: idParam },
+  responses: { 200: json(Material, 'Vật tư đã ngừng dùng'), ...AUTH_ERRORS, 404: err('Không tìm thấy vật tư') },
+});
+
+route({
+  method: 'get',
+  path: '/tasks',
+  tags: ['Tasks'],
+  summary: 'Kế hoạch trong khoảng ngày (`from`/`to` bắt buộc, `to` exclusive)',
+  request: { query: s.taskQuerySchema },
+  responses: { 200: json(z.object({ items: z.array(Task) }), 'Danh sách công việc'), ...AUTH_ERRORS },
+});
+
+route({
+  method: 'post',
+  path: '/tasks',
+  tags: ['Tasks'],
+  summary: 'Tạo công việc (chỉ `manager`)',
+  request: { body: { content: { 'application/json': { schema: s.createTaskSchema } } } },
+  responses: { 201: json(Task, 'Công việc vừa tạo'), ...AUTH_ERRORS },
+});
+
+route({
+  method: 'patch',
+  path: '/tasks/{id}',
+  tags: ['Tasks'],
+  summary: 'Sửa công việc',
+  description: '`manager` sửa mọi trường; `worker` chỉ đổi `status` của task được gán. `status=done` KHÔNG set ở đây — dùng `/tasks/{id}/complete`.',
+  request: { params: idParam, body: { content: { 'application/json': { schema: s.updateTaskSchema } } } },
+  responses: { 200: json(Task, 'Công việc sau khi sửa'), ...AUTH_ERRORS, 404: err('Không tìm thấy công việc') },
+});
+
+route({
+  method: 'delete',
+  path: '/tasks/{id}',
+  tags: ['Tasks'],
+  summary: 'Xoá công việc (chỉ `manager`)',
+  description: 'Xoá thật — kế hoạch chưa làm không phải hồ sơ truy xuất nguồn gốc.',
+  request: { params: idParam },
+  responses: { 204: { description: 'Đã xoá' }, ...AUTH_ERRORS, 404: err('Không tìm thấy công việc') },
+});
+
+route({
+  method: 'post',
+  path: '/tasks/{id}/complete',
+  tags: ['Tasks'],
+  summary: 'Hoàn thành công việc → sinh lịch sử cây',
+  description: [
+    '04_API.md §2b. Trong MỘT transaction: chạy đúng logic `POST /trees/{code}/history`,',
+    'rồi `status=done` + `done_history_id`.',
+    '',
+    '`treeCode` bắt buộc khi task có `scope` là `farm`/`block`.',
+    'Task đã `done`/`cancelled` → **409**.',
+  ].join('\n'),
+  request: { params: idParam, body: { content: { 'application/json': { schema: s.completeTaskSchema } } } },
+  responses: {
+    200: json(s.taskCompleteResultSchema, 'Công việc đã đóng kèm cây đã cập nhật'),
+    ...AUTH_ERRORS,
+    404: err('Không tìm thấy công việc / cây'),
+    409: err('Công việc đã đóng'),
+  },
+});
+
+route({
+  method: 'get',
+  path: '/reports/summary',
+  tags: ['Reports'],
+  summary: 'Báo cáo chi phí vật tư theo khoảng thời gian (chỉ `manager` — D9)',
+  description: [
+    '`from`/`to` bắt buộc, `to` exclusive. Tổng hợp bằng SQL ở BE (03_DATABASE §6d).',
+    '',
+    '`coverage` cho biết bao nhiêu bản ghi trong kỳ có ghi vật tư — UI phải hiển thị để',
+    'người dùng không tin số thiếu là số đủ. Lịch sử ghi trước khi bật ghi vật tư có',
+    '`materials = []` → 0 đồng, đó là đúng chứ không phải lỗi (D7).',
+  ].join('\n'),
+  request: { query: s.reportQuerySchema },
+  responses: { 200: json(ReportSummary, 'Số liệu tổng hợp'), ...AUTH_ERRORS },
+});
+
+route({
+  method: 'get',
+  path: '/reports/summary.csv',
+  tags: ['Reports'],
+  summary: 'Xuất CSV cùng tham số với /reports/summary (chỉ `manager`)',
+  description: 'CSV sinh ở BE để bảng trên màn hình và file tải về dùng chung một nguồn số.',
+  request: { query: s.reportQuerySchema },
+  responses: {
+    200: { description: 'File CSV', content: { 'text/csv': { schema: z.string() } } },
+    ...AUTH_ERRORS,
+  },
+});
+
 export function buildOpenApiDocument() {
   return new OpenApiGeneratorV3(registry.definitions).generateDocument({
     openapi: '3.0.3',
@@ -316,6 +449,9 @@ export function buildOpenApiDocument() {
       { name: 'Trees' },
       { name: 'History' },
       { name: 'Farm' },
+      { name: 'Materials' },
+      { name: 'Tasks' },
+      { name: 'Reports' },
       { name: 'Uploads' },
       { name: 'QR' },
     ],

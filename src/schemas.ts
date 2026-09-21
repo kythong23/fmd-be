@@ -12,6 +12,9 @@ export const historyTypeEnum = z.enum([
   'health_check', 'watering', 'fertilizing', 'spraying', 'pruning', 'treatment', 'harvest',
 ]);
 export const userRole = z.enum(['manager', 'worker', 'viewer']);
+export const materialType = z.enum(['fertilizer', 'pesticide', 'fungicide', 'herbicide', 'stimulant', 'other']);
+export const taskScope = z.enum(['farm', 'block', 'tree']);
+export const taskStatus = z.enum(['todo', 'doing', 'done', 'cancelled']);
 
 const lat = z.number().min(-90).max(90);
 const lng = z.number().min(-180).max(180);
@@ -22,6 +25,15 @@ export const measurementsSchema = z.object({
   trunkDiameter: z.number().min(0).max(500).optional(),
   soilMoisture: z.number().min(0).max(100).optional(),
   fruitCount: z.number().int().min(0).max(10000).optional(),
+});
+
+/**
+ * 04_API.md §2a — client CHỈ gửi materialId + quantity; code/name/unit/unitPrice do BE tra
+ * từ danh mục rồi snapshot (nhận giá từ client = mở cửa sửa báo cáo chi phí từ DevTools).
+ */
+export const materialUsageInputSchema = z.object({
+  materialId: z.string().uuid(),
+  quantity: z.number().positive().max(1_000_000),
 });
 
 /** POST /trees/:code/history — 04_API.md §2. healthScore KHÔNG có ở đây: client không được gửi. */
@@ -37,6 +49,7 @@ export const createHistorySchema = z.object({
   dosage: z.string().max(500).optional(),
   occurredAt: z.string().datetime({ offset: true }).optional(),
   clientRequestId: z.string().min(8).max(100).optional(),
+  materials: z.array(materialUsageInputSchema).max(50).default([]),
 });
 
 const treeCore = {
@@ -147,6 +160,16 @@ export const locationSchema = z.object({
   coordinates: z.object({ lat, lng }).optional(),
 });
 
+/** Snapshot vật tư đã dùng lưu trong tree_history.materials (D8). */
+export const materialUsageSchema = z.object({
+  materialId: z.string().uuid(),
+  code: z.string(),
+  name: z.string(),
+  quantity: z.number(),
+  unit: z.string(),
+  unitPrice: z.number().nullable().optional(),
+});
+
 export const historyRecordSchema = z.object({
   id: z.string().uuid(),
   occurredAt: z.string().datetime({ offset: true }), // D3: không tách date/time
@@ -161,6 +184,7 @@ export const historyRecordSchema = z.object({
   actionTaken: actionTaken.optional(),
   notes: z.string().optional(),
   measurements: measurementsSchema.optional(),
+  materials: z.array(materialUsageSchema).optional(), // D8 snapshot
 });
 
 export const treeSchema = z.object({
@@ -278,3 +302,133 @@ export const historyMutationResultSchema = z.object({
 
 /** GET /activity trả history kèm mã cây (feed toàn vườn). */
 export const activityItemSchema = historyRecordSchema.extend({ treeCode: z.string() });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MVP+ (D7): vật tư, kế hoạch, báo cáo
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const materialSchema = z.object({
+  id: z.string().uuid(),
+  code: z.string(),
+  name: z.string(),
+  type: materialType,
+  unit: z.string(),
+  // D9: chỉ manager thấy giá — serializer bỏ hẳn field với worker/viewer.
+  unitPrice: z.number().nullable().optional(),
+  active: z.boolean(),
+  notes: z.string().optional(),
+  updatedAt: z.string(),
+  createdAt: z.string(),
+});
+
+export const createMaterialSchema = z.object({
+  code: z.string().trim().min(1).max(50),
+  name: z.string().trim().min(1).max(200),
+  type: materialType,
+  unit: z.string().trim().min(1).max(20),
+  unitPrice: z.number().min(0).max(1_000_000_000).nullable().optional(),
+  notes: z.string().max(1000).optional(),
+});
+
+export const updateMaterialSchema = createMaterialSchema
+  .partial()
+  .extend({ active: z.boolean().optional() })
+  .refine((v) => Object.keys(v).length > 0, 'Không có trường nào để cập nhật');
+
+export const materialQuerySchema = z.object({
+  type: materialType.optional(),
+  q: z.string().max(100).optional(),
+  // Mặc định chỉ trả vật tư đang dùng; ?active=false để xem cái đã ngừng.
+  active: z
+    .enum(['true', 'false', 'all'])
+    .default('true')
+    .transform((v) => (v === 'all' ? null : v === 'true')),
+});
+
+export const taskSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  type: historyTypeEnum,
+  scope: taskScope,
+  block: z.string().nullable().optional(),
+  treeCode: z.string().nullable().optional(),
+  dueDate: isoDate,
+  status: taskStatus,
+  assigneeId: z.string().uuid().nullable().optional(),
+  assigneeName: z.string().nullable().optional(),
+  plannedMaterials: z.array(materialUsageSchema),
+  estimatedCost: z.number().nullable().optional(),
+  notes: z.string().optional(),
+  doneHistoryId: z.string().uuid().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const taskCore = {
+  title: z.string().trim().min(1).max(200),
+  type: historyTypeEnum,
+  scope: taskScope,
+  block: z.string().max(20).optional(),
+  treeCode: z.string().max(50).optional(),
+  dueDate: isoDate,
+  assigneeId: z.string().uuid().nullable().optional(),
+  plannedMaterials: z.array(materialUsageInputSchema).max(50).default([]),
+  notes: z.string().max(2000).optional(),
+};
+
+// CHECK ở DB đã chặn, nhưng báo lỗi 422 rõ ràng hơn là để Postgres ném 23514.
+export const createTaskSchema = z
+  .object(taskCore)
+  .refine((v) => v.scope !== 'block' || !!v.block, 'scope=block phải có block')
+  .refine((v) => v.scope !== 'tree' || !!v.treeCode, 'scope=tree phải có treeCode');
+
+/** status='done' KHÔNG set qua đây — phải đi POST /tasks/:id/complete để sinh lịch sử. */
+export const updateTaskSchema = z
+  .object(taskCore)
+  .partial()
+  .extend({ status: z.enum(['todo', 'doing', 'cancelled']).optional() })
+  .refine((v) => Object.keys(v).length > 0, 'Không có trường nào để cập nhật');
+
+export const taskQuerySchema = z.object({
+  from: isoDate,
+  to: isoDate, // exclusive
+  status: taskStatus.optional(),
+  assigneeId: z.string().uuid().optional(),
+  block: z.string().max(20).optional(),
+});
+
+/** POST /tasks/:id/complete — payload history + treeCode khi task không gắn cây. */
+export const completeTaskSchema = createHistorySchema.extend({
+  treeCode: z.string().max(50).optional(),
+});
+
+export const reportQuerySchema = z.object({
+  from: isoDate,
+  to: isoDate, // exclusive — 04_API §2c
+  block: z.string().max(20).optional(),
+  type: materialType.optional(),
+});
+
+export const reportSummarySchema = z.object({
+  range: z.object({ from: isoDate, to: isoDate }),
+  totalCost: z.number(),
+  byMaterial: z.array(
+    z.object({
+      materialId: z.string(),
+      code: z.string().nullable(),
+      name: z.string().nullable(),
+      type: materialType.nullable(),
+      unit: z.string().nullable(),
+      quantity: z.number(),
+      cost: z.number(),
+      missingPrice: z.boolean(),
+    }),
+  ),
+  byType: z.array(z.object({ type: materialType.nullable(), cost: z.number() })),
+  byBlock: z.array(z.object({ block: z.string().nullable(), cost: z.number(), activityCount: z.number() })),
+  byActivity: z.array(z.object({ type: historyTypeEnum, count: z.number() })),
+  // 04_API §2c: để UI nói thật "71/96 bản ghi có ghi vật tư", không để người dùng tin số thiếu là số đủ.
+  coverage: z.object({ historyCount: z.number(), withMaterialsCount: z.number() }),
+});
+
+export const taskCompleteResultSchema = z.object({ task: taskSchema, tree: treeSchema });
