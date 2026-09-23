@@ -13,7 +13,6 @@ import { farmRouter } from './routes/farm.js';
 import { historyRouter } from './routes/history.js';
 import { logsRouter } from './routes/logs.js';
 import { materialsRouter } from './routes/materials.js';
-import { varietiesRouter } from './routes/varieties.js';
 import { reportsRouter } from './routes/reports.js';
 import { tasksRouter } from './routes/tasks.js';
 import { treesRouter } from './routes/trees.js';
@@ -71,7 +70,6 @@ export function createApp() {
   api.use('/uploads', uploadsRouter);
   api.use('/logs', logsRouter);
   api.use('/materials', materialsRouter);
-  api.use('/varieties', varietiesRouter);
   api.use('/tasks', tasksRouter);
   api.use('/reports', reportsRouter);
   api.use(historyRouter); // /trees/:code/history, /activity

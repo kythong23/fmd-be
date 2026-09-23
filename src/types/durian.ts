@@ -38,8 +38,6 @@ export type ApiErrorBody = z.infer<typeof s.apiErrorSchema>;
 export type MaterialType = z.infer<typeof s.materialType>;
 export type Material = z.infer<typeof s.materialSchema>;
 export type MaterialUsage = z.infer<typeof s.materialUsageSchema>;
-/** Dòng trong danh mục cây giống `/varieties` (D10) — khác `DurianVariety` (giá trị `trees.variety`). */
-export type VarietyCatalogItem = z.infer<typeof s.varietyCatalogSchema>;
 export type TaskScope = z.infer<typeof s.taskScope>;
 export type TaskStatus = z.infer<typeof s.taskStatus>;
 export type Task = z.infer<typeof s.taskSchema>;
@@ -50,7 +48,6 @@ export type UpdateFormData = z.input<typeof s.createHistorySchema>;
 export type CreateTreeInput = z.input<typeof s.createTreeSchema>;
 export type UpdateTreeInput = z.input<typeof s.updateTreeSchema>;
 export type CreateMaterialInput = z.input<typeof s.createMaterialSchema>;
-export type CreateVarietyInput = z.input<typeof s.createVarietySchema>;
 export type CreateTaskInput = z.input<typeof s.createTaskSchema>;
 
 export interface Paginated<T> {

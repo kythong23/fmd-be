@@ -35,4 +35,10 @@ export const SEED_MATERIALS: SeedMaterial[] = [
   { code: 'KT-001', name: 'Paclobutrazol 10WP', type: 'stimulant', unit: 'kg', unitPrice: 320000, notes: 'Xử lý ra hoa nghịch vụ — dùng đúng liều, lạm dụng làm suy cây' },
   { code: 'KT-002', name: 'Bo (Boron) dạng lỏng', type: 'stimulant', unit: 'lít', unitPrice: 120000, notes: 'Phun giai đoạn mắt cua, chống rụng bông' },
   { code: 'VT-001', name: 'Màng phủ gốc / bạt che', type: 'other', unit: 'm2', unitPrice: null, notes: 'Vật tư tự có — chưa nhập giá' },
+  // Cây giống (D11) — đúng các giống đang có trong trees.variety.
+  { code: 'GC-001', name: 'Ri6', type: 'variety', unit: 'cây', unitPrice: 45000, notes: 'Giống chủ lực' },
+  { code: 'GC-002', name: 'Monthong (Dona)', type: 'variety', unit: 'cây', unitPrice: 55000 },
+  { code: 'GC-003', name: 'Musang King', type: 'variety', unit: 'cây', unitPrice: 120000 },
+  { code: 'GC-004', name: 'Black Thorn', type: 'variety', unit: 'cây', unitPrice: 250000 },
+  { code: 'GC-005', name: 'Chuồng Bò', type: 'variety', unit: 'cây', unitPrice: null, notes: 'Chưa có giá' },
 ];

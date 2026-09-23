@@ -53,28 +53,3 @@ test('payload history: client không gửi được healthScore, description đ�
     }),
   );
 });
-
-test('danh mục giống: worker/viewer không thấy unitPrice (D10 → D9)', async () => {
-  const { toVariety } = await import('../src/mappers.js');
-  const row = {
-    id: '00000000-0000-0000-0000-000000000001', name: 'Ri6', unit_price: '45000.00', active: true,
-    notes: null, created_at: new Date('2026-09-23T00:00:00Z'), updated_at: new Date('2026-09-23T00:00:00Z'),
-  };
-  assert.equal(toVariety(row, 'manager').unitPrice, 45000);
-  assert.equal(toVariety({ ...row, unit_price: null }, 'manager').unitPrice, null);
-  for (const role of ['worker', 'viewer'] as const) {
-    assert.ok(!('unitPrice' in toVariety(row, role)), `${role} không được thấy field unitPrice`);
-  }
-});
-
-test('danh mục giống: validate payload theo 04_API §1', async () => {
-  const { createVarietySchema, updateVarietySchema, varietyQuerySchema } = await import('../src/schemas.js');
-  assert.ok(createVarietySchema.safeParse({ name: 'Ri6', active: true }).success);
-  assert.ok(createVarietySchema.safeParse({ name: 'Ri6', unitPrice: null, active: true }).success);
-  assert.ok(!createVarietySchema.safeParse({ name: '  ', active: true }).success); // name rỗng
-  assert.ok(!createVarietySchema.safeParse({ name: 'Ri6' }).success); // thiếu active
-  assert.ok(!createVarietySchema.safeParse({ name: 'Ri6', unitPrice: -1, active: true }).success);
-  assert.ok(!updateVarietySchema.safeParse({}).success);
-  assert.equal(varietyQuerySchema.parse({}).active, true); // mặc định chỉ giống đang dùng
-  assert.equal(varietyQuerySchema.parse({ active: 'all' }).active, null);
-});

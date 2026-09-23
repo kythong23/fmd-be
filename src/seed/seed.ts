@@ -146,21 +146,6 @@ async function main() {
       materialIds[m.code] = r.rows[0].id;
     }
 
-    // Danh mục cây giống (D10) — đúng các giống trees.variety đang dùng, để màn /varieties có dữ liệu.
-    const seedVarieties: [string, number | null, string | null][] = [
-      ['Ri6', 45000, 'Giống chủ lực'],
-      ['Monthong (Dona)', 55000, null],
-      ['Musang King', 120000, null],
-      ['Black Thorn', 250000, null],
-      ['Chuồng Bò', null, 'Chưa có giá'],
-    ];
-    for (const [name, unitPrice, notes] of seedVarieties) {
-      await client.query(
-        `insert into varieties (farm_id, name, unit_price, notes) values ($1,$2,$3,$4)`,
-        [farmId, name, unitPrice, notes],
-      );
-    }
-
     // Vài task mẫu quanh hôm nay để màn /plans có gì để nhìn.
     const day = (offset: number) => {
       const d = new Date();
@@ -186,7 +171,7 @@ async function main() {
     }
 
     console.log(`✓ Vườn ${farmId}`);
-    console.log(`✓ ${SEED_MATERIALS.length} vật tư, ${seedVarieties.length} giống cây, ${sampleTasks.length} kế hoạch mẫu`);
+    console.log(`✓ ${SEED_MATERIALS.length} vật tư, ${sampleTasks.length} kế hoạch mẫu`);
     console.log(`✓ ${provisioned.rowCount} mã QR trống (tổng ước tính ${ESTIMATED_TREE_COUNT})`);
     console.log(`✓ ${treeCount} cây, ${historyCount} bản ghi lịch sử`);
     console.log(`✓ 3 tài khoản (mật khẩu: ${SEED_PASSWORD}): ${accounts.map((a) => a.email).join(', ')}`);

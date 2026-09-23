@@ -12,7 +12,7 @@ export const historyTypeEnum = z.enum([
   'health_check', 'watering', 'fertilizing', 'spraying', 'pruning', 'treatment', 'harvest',
 ]);
 export const userRole = z.enum(['manager', 'worker', 'viewer']);
-export const materialType = z.enum(['fertilizer', 'pesticide', 'fungicide', 'herbicide', 'stimulant', 'other']);
+export const materialType = z.enum(['fertilizer', 'pesticide', 'fungicide', 'herbicide', 'stimulant', 'variety', 'other']);
 export const taskScope = z.enum(['farm', 'block', 'tree']);
 export const taskStatus = z.enum(['todo', 'doing', 'done', 'cancelled']);
 
@@ -325,38 +325,6 @@ export const materialQuerySchema = z.object({
   type: materialType.optional(),
   q: z.string().max(100).optional(),
   // Mặc định chỉ trả vật tư đang dùng; ?active=false để xem cái đã ngừng.
-  active: z
-    .enum(['true', 'false', 'all'])
-    .default('true')
-    .transform((v) => (v === 'all' ? null : v === 'true')),
-});
-
-// Danh mục cây giống (D10) — cùng luật giá D9, cùng soft-delete D8. Không có `code`, không bắt tên duy nhất.
-export const varietyCatalogSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  // D10 áp lại D9: chỉ manager thấy giá — serializer bỏ hẳn field với worker/viewer.
-  unitPrice: z.number().nullable().optional(),
-  active: z.boolean(),
-  notes: z.string().optional(),
-  updatedAt: z.string(),
-  createdAt: z.string(),
-});
-
-export const createVarietySchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  unitPrice: z.number().min(0).max(1_000_000_000).nullable().optional(),
-  active: z.boolean(),
-  notes: z.string().max(1000).optional(),
-});
-
-export const updateVarietySchema = createVarietySchema
-  .partial()
-  .refine((v) => Object.keys(v).length > 0, 'Không có trường nào để cập nhật');
-
-export const varietyQuerySchema = z.object({
-  q: z.string().max(100).optional(),
-  // Mặc định chỉ trả giống đang dùng; ?active=false|all để xem cái đã ngừng.
   active: z
     .enum(['true', 'false', 'all'])
     .default('true')

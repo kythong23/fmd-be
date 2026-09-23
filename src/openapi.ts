@@ -29,7 +29,6 @@ const AuthUser = registry.register('AuthUser', s.authUserSchema);
 const AuthTokens = registry.register('AuthTokens', s.authTokensSchema);
 const ApiError = registry.register('ApiError', s.apiErrorSchema);
 const Material = registry.register('Material', s.materialSchema);
-const Variety = registry.register('Variety', s.varietyCatalogSchema);
 const Task = registry.register('Task', s.taskSchema);
 const ReportSummary = registry.register('ReportSummary', s.reportSummarySchema);
 
@@ -303,45 +302,7 @@ route({
   responses: { 200: json(Material, 'Vật tư đã ngừng dùng'), ...AUTH_ERRORS, 404: err('Không tìm thấy vật tư') },
 });
 
-// ── Danh mục cây giống (MVP+ — 09_DECISIONS D10) ─────────────────────────────
-route({
-  method: 'get',
-  path: '/varieties',
-  tags: ['Varieties'],
-  summary: 'Danh mục cây giống',
-  description: '`unitPrice` chỉ có trong response của `manager` (D10 → D9). `active` mặc định `true`; `all` để xem cả giống đã ngừng.',
-  request: { query: s.varietyQuerySchema },
-  responses: { 200: json(z.object({ items: z.array(Variety) }), 'Danh mục cây giống'), ...AUTH_ERRORS },
-});
 
-route({
-  method: 'post',
-  path: '/varieties',
-  tags: ['Varieties'],
-  summary: 'Thêm giống cây (chỉ `manager`)',
-  description: 'Không yêu cầu `name` duy nhất — hai nguồn giống cùng tên là hợp lệ.',
-  request: { body: { content: { 'application/json': { schema: s.createVarietySchema } } } },
-  responses: { 201: json(Variety, 'Giống cây vừa tạo'), ...AUTH_ERRORS },
-});
-
-route({
-  method: 'patch',
-  path: '/varieties/{id}',
-  tags: ['Varieties'],
-  summary: 'Sửa giống cây / đổi giá (chỉ `manager`)',
-  request: { params: idParam, body: { content: { 'application/json': { schema: s.updateVarietySchema } } } },
-  responses: { 200: json(Variety, 'Giống cây sau khi sửa'), ...AUTH_ERRORS, 404: err('Không tìm thấy giống cây') },
-});
-
-route({
-  method: 'delete',
-  path: '/varieties/{id}',
-  tags: ['Varieties'],
-  summary: 'Ngừng dùng giống cây (soft-delete, chỉ `manager`)',
-  description: 'Set `active=false`, KHÔNG xoá dòng — giống có thể đang gắn với cây đã trồng (D10).',
-  request: { params: idParam },
-  responses: { 200: json(Variety, 'Giống cây đã ngừng dùng'), ...AUTH_ERRORS, 404: err('Không tìm thấy giống cây') },
-});
 
 route({
   method: 'get',
@@ -455,7 +416,6 @@ export function buildOpenApiDocument() {
       { name: 'History' },
       { name: 'Farm' },
       { name: 'Materials' },
-      { name: 'Varieties' },
       { name: 'Tasks' },
       { name: 'Reports' },
       { name: 'Uploads' },
