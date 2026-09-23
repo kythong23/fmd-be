@@ -28,6 +28,22 @@ export function redact(value: unknown, depth = 0): unknown {
   return out;
 }
 
+/** Ẩn giá trị query nhạy cảm trong url (?token=...) — path được lưu nguyên văn nên phải che ở đây. */
+export function redactUrl(url: string): string {
+  const i = url.indexOf('?');
+  if (i < 0) return url;
+  const qs = url.slice(i).replace(/([?&])([^=&#]+)=([^&#]*)/g, (m, sep: string, key: string) => {
+    let name = key;
+    try {
+      name = decodeURIComponent(key);
+    } catch {
+      /* key hỏng -> so khớp nguyên văn */
+    }
+    return SECRET_KEYS.test(name) ? `${sep}${key}=***` : m;
+  });
+  return url.slice(0, i) + qs;
+}
+
 function fit(value: unknown): unknown {
   if (value === undefined) return null;
   const json = JSON.stringify(value);
@@ -94,15 +110,15 @@ export function apiLogger() {
       const err = responseBody as { error?: { code?: string } } | undefined;
 
       query(
-        `insert into api_log(request_id, user_id, user_email, method, path, status, duration_ms, ip, subjects, payload, response, error_code, error_stack)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        `insert into api_log(request_id, user_id, user_email, method, path, status, duration_ms, ip, subjects, payload, response, error_code, error_stack, user_agent)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
         [
           req.requestId,
           req.user?.id ?? null,
           // login/refresh chưa có req.user -> lấy email trong payload để dòng log không trống.
           req.user?.email ?? (typeof req.body?.email === 'string' ? req.body.email : null),
           req.method,
-          req.originalUrl,
+          redactUrl(req.originalUrl),
           res.statusCode,
           Date.now() - start,
           req.ip ?? null,
@@ -111,6 +127,7 @@ export function apiLogger() {
           fit(response),
           failed ? (err?.error?.code ?? null) : null,
           res.locals.errorStack ?? null,
+          req.get('user-agent')?.slice(0, 300) ?? null,
         ],
       ).catch((e) => console.error(`[${req.requestId}] api_log insert failed`, e));
     });

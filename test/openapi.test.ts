@@ -22,7 +22,8 @@ test('doc sinh được và phủ đủ endpoint MVP của 04_API.md §1', () =>
     'PATCH /trees/{code}/position', 'DELETE /trees/{code}',
     'POST /trees/{code}/history', 'GET /trees/{code}/history', 'GET /activity',
     'GET /farm', 'PATCH /farm/benchmark', 'PATCH /farm/settings',
-    'POST /uploads', 'GET /trees/{code}/qr', 'POST /qr/batch',
+    'POST /uploads',
+    'GET /varieties', 'POST /varieties', 'PATCH /varieties/{id}', 'DELETE /varieties/{id}',
   ]) {
     assert.ok(ids.includes(expected), `thiếu tài liệu cho ${expected}`);
   }

@@ -7,38 +7,60 @@ import { requireRole } from '../middleware/auth.js';
 export const logsRouter = Router();
 logsRouter.use(requireRole('manager'));
 
+// Thời lượng: ">300", "<=50", "100-500" (ms).
+const DURATION_RE = /^(?:(>=|<=|>|<)\s*(\d+)|(\d+)\s*-\s*(\d+))$/;
+
 const listQuery = z.object({
   q: z.string().trim().max(200).optional(), // khớp path hoặc email
   subject: z.string().trim().max(120).optional(), // 'tree:DR-001'
   requestId: z.string().trim().max(120).optional(),
   onlyErrors: z.enum(['true', 'false']).optional(),
+  method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).optional(),
+  status: z.enum(['2xx', '3xx', '4xx', '5xx', 'error']).optional(),
+  code: z.coerce.number().int().min(100).max(599).optional(),
+  since: z.coerce.number().int().min(1).max(60 * 24 * 90).optional(), // phút gần đây
+  duration: z.string().trim().regex(DURATION_RE).optional(),
+  sort: z.enum(['asc', 'desc']).default('desc'),
   limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).max(100_000).default(0),
   before: z.coerce.number().int().optional(), // id của dòng cuối trang trước
 });
 
-const COLUMNS = `id, request_id, ts, user_email, method, path, status, duration_ms, subjects, error_code`;
+const COLUMNS = `id, request_id, ts, user_email, method, path, status, duration_ms, ip, subjects, error_code`;
 
-/** GET /logs — danh sách mới nhất, lọc theo lỗi / path / cây. */
+/** GET /logs — danh sách + tổng số dòng khớp lọc (để phân trang) và tổng toàn bộ log. */
 logsRouter.get('/', async (req, res, next) => {
   try {
-    const { q, subject, requestId, onlyErrors, limit, before } = listQuery.parse(req.query);
+    const f = listQuery.parse(req.query);
     const where: string[] = [];
     const params: unknown[] = [];
     const p = (value: unknown) => `$${params.push(value)}`;
-    if (onlyErrors === 'true') where.push('status >= 400');
-    if (q) {
-      const like = p(`%${q}%`);
+    if (f.onlyErrors === 'true' || f.status === 'error') where.push('status >= 400');
+    else if (f.status) {
+      const base = Number(f.status[0]) * 100;
+      where.push(`status between ${base} and ${base + 99}`);
+    }
+    if (f.code) where.push(`status = ${p(f.code)}`);
+    if (f.method) where.push(`method = ${p(f.method)}`);
+    if (f.q) {
+      const like = p(`%${f.q}%`);
       where.push(`(path ilike ${like} or user_email ilike ${like})`);
     }
-    if (subject) where.push(`subjects @> array[${p(subject)}]`);
-    if (requestId) where.push(`request_id = ${p(requestId)}`);
-    if (before) where.push(`id < ${p(before)}`);
-    const { rows } = await query(
-      `select ${COLUMNS} from api_log ${where.length ? `where ${where.join(' and ')}` : ''}
-       order by id desc limit ${limit}`,
-      params,
-    );
-    res.json({ items: rows });
+    if (f.subject) where.push(`subjects @> array[${p(f.subject)}]`);
+    if (f.requestId) where.push(`request_id = ${p(f.requestId)}`);
+    if (f.since) where.push(`ts >= now() - make_interval(mins => ${p(f.since)})`);
+    if (f.duration) {
+      const [, op, n, lo, hi] = f.duration.match(DURATION_RE)!;
+      where.push(op ? `duration_ms ${op} ${p(Number(n))}` : `duration_ms between ${p(Number(lo))} and ${p(Number(hi))}`);
+    }
+    if (f.before) where.push(`id < ${p(f.before)}`);
+    const cond = where.length ? `where ${where.join(' and ')}` : '';
+    const [list, count, all] = await Promise.all([
+      query(`select ${COLUMNS} from api_log ${cond} order by id ${f.sort} limit ${f.limit} offset ${f.offset}`, params),
+      query<{ n: string }>(`select count(*) as n from api_log ${cond}`, params),
+      query<{ n: string }>('select count(*) as n from api_log'),
+    ]);
+    res.json({ items: list.rows, total: Number(count.rows[0].n), all: Number(all.rows[0].n) });
   } catch (err) {
     next(err);
   }

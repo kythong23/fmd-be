@@ -1,6 +1,6 @@
 /** snake_case (DB) <-> camelCase (API) — 04_API.md §0: chỉ map ở MỘT chỗ duy nhất. */
 import { ageFromPlantedDate } from './domain/history.js';
-import type { DurianTree, Farm, HistoryRecord, Material, MaterialUsage, Task, UserRole } from './types/durian.js';
+import type { DurianTree, Farm, HistoryRecord, Material, MaterialUsage, Task, UserRole, VarietyCatalogItem } from './types/durian.js';
 
 const iso = (v: Date | string | null): string => (v instanceof Date ? v.toISOString() : (v ?? ''));
 const num = (v: unknown): number | undefined => (v === null || v === undefined ? undefined : Number(v));
@@ -69,6 +69,19 @@ export function toMaterial(row: any, role: UserRole): Material {
     name: row.name,
     type: row.type,
     unit: row.unit,
+    ...(role === 'manager' ? { unitPrice: num(row.unit_price) ?? null } : {}),
+    active: !!row.active,
+    notes: row.notes ?? undefined,
+    updatedAt: iso(row.updated_at),
+    createdAt: iso(row.created_at),
+  };
+}
+
+/** D10 áp lại D9: worker/viewer không thấy giá giống — bỏ hẳn field. */
+export function toVariety(row: any, role: UserRole): VarietyCatalogItem {
+  return {
+    id: row.id,
+    name: row.name,
     ...(role === 'manager' ? { unitPrice: num(row.unit_price) ?? null } : {}),
     active: !!row.active,
     notes: row.notes ?? undefined,

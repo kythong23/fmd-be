@@ -40,7 +40,7 @@ export const materialUsageInputSchema = z.object({
 export const createHistorySchema = z.object({
   status: treeStatus,
   conditions: z.array(conditionTag).default([]),
-  description: z.string().trim().min(1, 'Mô tả không được để trống').max(2000),
+  description: z.string().trim().max(2000).default(''),
   images: z.array(z.string().url()).max(10).default([]),
   measurements: measurementsSchema.optional(),
   actionTaken: actionTaken,
@@ -279,20 +279,6 @@ export const apiErrorSchema = z.object({
 export const paginated = <T extends z.ZodTypeAny>(item: T) =>
   z.object({ items: z.array(item), nextCursor: z.string().nullable() });
 
-export const qrItemSchema = z.object({
-  code: z.string(),
-  block: z.string().nullable().optional(),
-  bedName: z.string().nullable().optional(),
-  moundNumber: z.string().nullable().optional(),
-  url: z.string(),
-  dataUrl: z.string(),
-});
-
-export const qrBatchBodySchema = z.object({
-  codes: z.array(z.string().max(50)).min(1).max(300).optional(),
-  block: z.string().max(20).optional(),
-});
-
 export const uploadResultSchema = z.object({ urls: z.array(z.string()) });
 
 export const historyMutationResultSchema = z.object({
@@ -339,6 +325,38 @@ export const materialQuerySchema = z.object({
   type: materialType.optional(),
   q: z.string().max(100).optional(),
   // Mặc định chỉ trả vật tư đang dùng; ?active=false để xem cái đã ngừng.
+  active: z
+    .enum(['true', 'false', 'all'])
+    .default('true')
+    .transform((v) => (v === 'all' ? null : v === 'true')),
+});
+
+// Danh mục cây giống (D10) — cùng luật giá D9, cùng soft-delete D8. Không có `code`, không bắt tên duy nhất.
+export const varietyCatalogSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  // D10 áp lại D9: chỉ manager thấy giá — serializer bỏ hẳn field với worker/viewer.
+  unitPrice: z.number().nullable().optional(),
+  active: z.boolean(),
+  notes: z.string().optional(),
+  updatedAt: z.string(),
+  createdAt: z.string(),
+});
+
+export const createVarietySchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  unitPrice: z.number().min(0).max(1_000_000_000).nullable().optional(),
+  active: z.boolean(),
+  notes: z.string().max(1000).optional(),
+});
+
+export const updateVarietySchema = createVarietySchema
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, 'Không có trường nào để cập nhật');
+
+export const varietyQuerySchema = z.object({
+  q: z.string().max(100).optional(),
+  // Mặc định chỉ trả giống đang dùng; ?active=false|all để xem cái đã ngừng.
   active: z
     .enum(['true', 'false', 'all'])
     .default('true')

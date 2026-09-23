@@ -70,7 +70,6 @@ Mọi route trừ `/auth/login` và `/auth/refresh` đều cần `Authorization:
 | GET | `/farm` · `/farm/stats` | mọi vai trò |
 | PATCH | `/farm/benchmark` · `/farm/settings` | manager |
 | POST | `/uploads` (multipart `files`) | manager · worker |
-| GET | `/trees/:code/qr` `?format=png` · POST `/qr/batch` | mọi vai trò |
 
 Lỗi luôn theo `{ error: { code, message, details? } }` (04_API.md §4).
 

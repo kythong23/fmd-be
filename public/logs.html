@@ -5,150 +5,744 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>FDM · API Log</title>
 <style>
-  :root { --bg:#0f1115; --panel:#171a21; --line:#272b35; --text:#e6e8ee; --muted:#8b91a1; --ok:#3fb950; --err:#f85149; --warn:#d29922; --accent:#58a6ff; }
+  :root {
+    --bg:#0d1117; --panel:#131922; --panel2:#0f141b; --line:#232b36; --line2:#1b222c;
+    --text:#e6e9ef; --muted:#8a93a3; --dim:#5d6676;
+    --accent:#4c8dff; --green:#3fb950; --blue:#58a6ff; --purple:#bc8cff; --red:#f85149; --orange:#f0883e; --yellow:#e3b341;
+    --mono:ui-monospace,SFMono-Regular,'JetBrains Mono',Consolas,monospace;
+  }
   * { box-sizing:border-box; }
-  body { margin:0; font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; background:var(--bg); color:var(--text); }
-  header { display:flex; gap:8px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  h1 { font-size:14px; margin:0 12px 0 0; font-weight:600; }
-  input, button, select { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 10px; font:inherit; }
-  button { cursor:pointer; } button:hover { border-color:var(--accent); }
-  #auth { display:flex; gap:8px; align-items:center; }
-  label { color:var(--muted); display:flex; align-items:center; gap:5px; }
-  main { display:grid; grid-template-columns:minmax(380px,1fr) minmax(420px,1fr); height:calc(100vh - 53px); }
-  @media (max-width:900px){ main { grid-template-columns:1fr; height:auto; } }
-  section { overflow:auto; padding:10px 14px; }
-  #detail { border-left:1px solid var(--line); }
-  table { width:100%; border-collapse:collapse; }
-  td { padding:5px 6px; border-bottom:1px solid var(--line); white-space:nowrap; }
-  tr.row { cursor:pointer; } tr.row:hover td { background:#1c2029; } tr.sel td { background:#1f2530; }
-  .st { font-weight:600; } .s2 { color:var(--ok); } .s4 { color:var(--warn); } .s5 { color:var(--err); }
-  .muted { color:var(--muted); } .path { white-space:normal; word-break:break-all; }
-  pre { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:10px; overflow:auto; max-height:320px; white-space:pre-wrap; word-break:break-word; }
-  h2 { font-size:13px; margin:14px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
-  .tag { display:inline-block; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:1px 9px; margin:0 4px 4px 0; cursor:pointer; }
-  .tag:hover { border-color:var(--accent); }
-  .step { border-left:2px solid var(--line); padding:0 0 10px 12px; margin-left:6px; }
-  .step.bad { border-color:var(--err); }
-  .step > div:first-child { cursor:pointer; }
-  .hide { display:none; }
+  html,body { margin:0; background:var(--bg); color:var(--text); }
+  body { font:13px/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  a { color:inherit; text-decoration:none; }
+  .mono { font-family:var(--mono); font-size:12px; }
+  .muted { color:var(--muted); }
+  .hide { display:none !important; }
+  svg { width:14px; height:14px; flex:none; }
+
+  /* ---------- top bar ---------- */
+  .top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel2); position:sticky; top:0; z-index:5; flex-wrap:wrap; }
+  .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+  .logo { width:28px; height:28px; border-radius:7px; background:var(--accent); color:#fff; display:grid; place-items:center; font-weight:700; }
+  .title { font-weight:700; font-size:14px; }
+  .sub { color:var(--muted); font-size:12px; }
+  .top-r { display:flex; align-items:center; gap:10px; }
+  .crumb { display:flex; align-items:center; gap:10px; min-width:0; }
+  .crumb .sep { color:var(--dim); }
+  .crumb b { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .btn { display:inline-flex; align-items:center; gap:6px; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 11px; font:inherit; font-weight:600; font-size:12.5px; cursor:pointer; white-space:nowrap; }
+  .btn:hover { border-color:#3a4557; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn.primary:hover { filter:brightness(1.08); }
+  .btn.ghost { background:transparent; border-color:transparent; }
+  .btn.ghost:hover { border-color:var(--line); }
+  .btn.sm { padding:4px 9px; font-size:12px; }
+  .btn.on { background:#1c2c4a; border-color:#2d4a7c; color:#8fb8ff; }
+  .btn:disabled { opacity:.4; cursor:default; }
+  .pill { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 11px; border:1px solid var(--line); background:var(--panel); color:var(--muted); font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+  .pill i { width:7px; height:7px; border-radius:50%; background:var(--dim); }
+  .pill.on { color:#56d364; border-color:#1f5a2c; background:#12261a; }
+  .pill.on i { background:#3fb950; box-shadow:0 0 0 3px #3fb95033; }
+
+  .wrap { padding:16px; display:flex; flex-direction:column; gap:14px; }
+  .listview { height:100vh; display:flex; flex-direction:column; }
+  .listview .wrap { flex:1; min-height:0; }
+  .listview .tblcard { flex:1; min-height:280px; display:flex; flex-direction:column; overflow:hidden; }
+  .listview .tscroll { flex:1; min-height:0; overflow:auto; }
+  .listview .tfoot { border-top:1px solid var(--line); }
+  table.list thead th { position:sticky; top:0; z-index:1; background:var(--panel2); }
+  .card { background:var(--panel2); border:1px solid var(--line); border-radius:8px; }
+
+  /* ---------- stats ---------- */
+  .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+  .stat { padding:14px 16px; }
+  .stat .k { color:var(--muted); font-size:12px; }
+  .stat .v { font-size:22px; font-weight:700; margin:2px 0; }
+  .stat .v.bad { color:var(--red); }
+  .stat .h { color:var(--dim); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* ---------- filters ---------- */
+  .filters { padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+  .frow { display:grid; gap:12px; align-items:end; }
+  .frow.r1 { grid-template-columns:2.2fr 1fr 1fr 1fr 1fr; }
+  .frow.r2 { grid-template-columns:3fr 2.1fr 120px auto auto; }
+  .field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .field > span { font-size:12px; color:var(--muted); font-weight:600; }
+  input, select { width:100%; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:7px 10px; font:inherit; outline:none; }
+  input::placeholder { color:var(--dim); }
+  input:focus, select:focus { border-color:var(--accent); }
+  input.invalid { border-color:var(--red); }
+  .ico-in { position:relative; }
+  .ico-in svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--dim); }
+  .ico-in input { padding-left:30px; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid #2d4a7c; background:#15223a; color:#8fb8ff; border-radius:999px; padding:2px 6px 2px 10px; font-size:12px; }
+  .chip button { background:none; border:0; color:inherit; cursor:pointer; font-size:14px; line-height:1; padding:0 2px; }
+
+  /* ---------- badges ---------- */
+  .m { display:inline-block; font-family:var(--mono); font-size:11px; font-weight:700; padding:2px 7px; border-radius:5px; letter-spacing:.02em; }
+  .m-GET { color:#39c5cf; background:#0f2a2d; }
+  .m-POST { color:#56d364; background:#12291a; }
+  .m-PUT { color:#79b8ff; background:#132440; }
+  .m-PATCH { color:#c297ff; background:#241a3a; }
+  .m-DELETE { color:#ff7b72; background:#3a1618; }
+  .s { display:inline-block; font-family:var(--mono); font-size:11px; font-weight:700; padding:2px 7px; border-radius:999px; }
+  .s2 { color:#56d364; background:#12291a; }
+  .s3 { color:#79b8ff; background:#132440; }
+  .s4 { color:#f0a35e; background:#3a2413; }
+  .s5 { color:#ff7b72; background:#3a1618; }
+  .ec4 { color:var(--orange); } .ec5 { color:var(--red); }
+
+  /* ---------- table ---------- */
+  .tscroll { overflow-x:auto; }
+  table.list { width:100%; border-collapse:collapse; min-width:980px; }
+  table.list th { text-align:left; font-size:12px; font-weight:600; color:var(--muted); padding:10px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  table.list th.sort { cursor:pointer; user-select:none; }
+  table.list th.sort:hover { color:var(--text); }
+  table.list th.sort b { color:var(--accent); }
+  table.list tbody tr:last-child td { border-bottom:0; }
+  table.list td { padding:9px 12px; border-bottom:1px solid var(--line2); white-space:nowrap; vertical-align:middle; }
+  tr.row { cursor:pointer; box-shadow:inset 3px 0 0 transparent; }
+  tr.row:hover td { background:#161d27; }
+  tr.row:focus-visible { outline:1px solid var(--accent); outline-offset:-1px; }
+  tr.row.e4 { box-shadow:inset 3px 0 0 var(--yellow); }
+  tr.row.e5 { box-shadow:inset 3px 0 0 var(--red); }
+  td.t { font-weight:700; }
+  .dur { display:flex; align-items:center; gap:10px; }
+  .dur .mono { width:62px; text-align:right; }
+  .bar { width:94px; height:4px; border-radius:2px; background:#232b36; overflow:hidden; }
+  .bar i { display:block; height:100%; border-radius:2px; }
+  .d0 { background:#5c6b82; } .d1 { background:var(--yellow); } .d2 { background:var(--orange); } .d3 { background:var(--red); }
+  td.path { max-width:520px; overflow:hidden; text-overflow:ellipsis; }
+  td.path .q { color:var(--dim); }
+  td.rid { max-width:150px; overflow:hidden; text-overflow:ellipsis; color:var(--muted); }
+  .empty { padding:40px 16px; text-align:center; color:var(--muted); }
+  .tfoot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; flex-wrap:wrap; }
+  .legend { display:flex; align-items:center; gap:14px; color:var(--muted); font-size:12px; flex-wrap:wrap; }
+  .legend i { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:0; }
+  .pager { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; }
+
+  /* ---------- detail ---------- */
+  .hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(280px,640px); gap:20px; padding:18px 20px; }
+  .hero-l { display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .hline { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .hpath { font-family:var(--mono); font-size:17px; font-weight:700; word-break:break-all; }
+  .meta { display:flex; gap:22px; flex-wrap:wrap; color:var(--muted); font-size:12.5px; }
+  .meta b { color:var(--text); }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .hero-r { border-left:1px solid var(--line); padding-left:26px; display:flex; flex-direction:column; justify-content:center; gap:8px; }
+  .dbig { display:flex; align-items:baseline; gap:10px; }
+  .dbig b { font-size:22px; }
+  .scale { position:relative; height:6px; border-radius:3px; background:linear-gradient(90deg,#1f3a2c 0 25%,#3a3517 25% 50%,#3d2a17 50% 75%,#3f1c1f 75% 100%); }
+  .scale .tick { position:absolute; top:-4px; width:3px; height:14px; border-radius:2px; background:#fff; transform:translateX(-1px); }
+  .scale-l { position:relative; height:14px; font-size:11px; color:var(--muted); }
+  .scale-l span { position:absolute; transform:translateX(-50%); }
+  .scale-l span:first-child { transform:none; }
+
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); padding:0 12px; overflow-x:auto; }
+  .tab { padding:12px 14px 10px; color:var(--muted); font-weight:600; border-bottom:2px solid transparent; white-space:nowrap; display:inline-flex; align-items:center; gap:8px; }
+  .tab:hover { color:var(--text); }
+  .tab.on { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab small { font-size:11px; color:var(--muted); background:#1c2430; padding:1px 6px; border-radius:4px; }
+  .tabbody { padding:16px; }
+
+  table.kv { width:100%; border-collapse:collapse; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  table.kv th { text-align:left; font-size:12px; letter-spacing:.04em; color:var(--muted); padding:10px 16px; background:#11171f; border-bottom:1px solid var(--line); }
+  table.kv td { padding:10px 16px; border-bottom:1px solid var(--line2); vertical-align:top; }
+  table.kv tr:last-child td { border-bottom:0; }
+  table.kv td.k { width:150px; color:var(--muted); white-space:nowrap; }
+  table.kv td.v { word-break:break-all; }
+  table.kv td.c { width:40px; text-align:right; }
+  .icon-btn { background:none; border:0; color:var(--muted); cursor:pointer; padding:2px; border-radius:4px; display:inline-grid; place-items:center; }
+  .icon-btn:hover { color:var(--text); background:#1c2430; }
+  .tag { display:inline-block; font-family:var(--mono); font-size:11.5px; border:1px solid var(--line); background:var(--panel); border-radius:999px; padding:1px 9px; margin:0 4px 4px 0; cursor:pointer; }
+  .tag:hover { border-color:var(--accent); color:#8fb8ff; }
+
+  .io { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .io-h { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; letter-spacing:.04em; margin:0 0 10px; }
+  .panel { border:1px solid var(--line); border-radius:8px; background:#10151d; margin-bottom:14px; overflow:hidden; }
+  .panel-h { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .panel-h .t { font-weight:700; }
+  .panel-h .t small { color:var(--muted); font-weight:400; margin-left:6px; }
+  .tools { display:flex; gap:6px; flex-wrap:wrap; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .seg button { background:var(--panel); border:0; color:var(--muted); padding:4px 10px; font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+  .seg button.on { background:#1c2c4a; color:#8fb8ff; }
+  pre.code { margin:0; padding:12px 14px; font-family:var(--mono); font-size:12px; line-height:1.65; overflow:auto; max-height:560px; white-space:pre; }
+  pre.code.wrap { white-space:pre-wrap; word-break:break-word; }
+  .j-key { color:#79c0ff; } .j-str { color:#a5d6a7; } .j-num { color:#d2a8ff; } .j-bool { color:#ffa657; } .j-null { color:#ffa657; } .j-red { color:#ff7b72; font-weight:700; }
+  table.params { width:100%; border-collapse:collapse; }
+  table.params td { padding:7px 12px; border-top:1px solid var(--line2); font-family:var(--mono); font-size:12px; word-break:break-all; }
+  table.params td:first-child { width:35%; color:var(--muted); }
+  .note { padding:12px 14px; color:var(--muted); font-size:12.5px; }
+
+  .step { display:grid; grid-template-columns:auto auto auto minmax(0,1fr) auto; gap:10px; align-items:center; padding:9px 12px; border-top:1px solid var(--line2); cursor:pointer; }
+  .step:hover { background:#161d27; }
+  .step.cur { background:#15223a; }
+  .step .p { font-family:var(--mono); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .step-b { padding:0 12px 12px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .step-b .panel { margin:0; }
+
+  /* ---------- login / toast ---------- */
+  .login { max-width:360px; margin:12vh auto 0; padding:24px; display:flex; flex-direction:column; gap:12px; }
+  .login h1 { margin:0; font-size:16px; }
+  .err { color:var(--red); }
+  .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#1c2430; border:1px solid var(--line); padding:8px 14px; border-radius:6px; font-size:12.5px; opacity:0; transition:opacity .15s; pointer-events:none; z-index:20; }
+  .toast.show { opacity:1; }
+
+  @media (max-width:1100px) {
+    .stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .frow.r1, .frow.r2 { grid-template-columns:1fr 1fr; }
+    .frow .wide { grid-column:1 / -1; }
+    .hero { grid-template-columns:1fr; }
+    .hero-r { border-left:0; padding-left:0; border-top:1px solid var(--line); padding-top:14px; }
+    .io, .step-b { grid-template-columns:1fr; }
+  }
+  @media (max-width:700px), (max-height:560px) {
+    .listview { height:auto; }
+    .listview .tscroll { max-height:70vh; }
+  }
+  @media (max-width:560px) {
+    .stats { grid-template-columns:1fr; }
+    .top .sub, #updated { display:none; }
+    table.kv td.k { width:110px; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>FDM · API Log</h1>
-  <span id="auth"></span>
-  <input id="q" placeholder="lọc path / email" size="18" />
-  <input id="subject" placeholder="tree:DR-001" size="14" />
-  <label><input type="checkbox" id="onlyErrors" checked /> chỉ lỗi</label>
-  <button id="reload">Tải lại</button>
-  <span id="info" class="muted"></span>
-</header>
-<main>
-  <section id="list"></section>
-  <section id="detail"><p class="muted">Chọn một request để xem payload / response và trace ngược.</p></section>
-</main>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
 <script>
-const $ = (id) => document.getElementById(id);
-const token = () => localStorage.getItem('fdm_log_token') || '';
-const api = (p) => fetch('/api/v1' + p, { headers: { Authorization: 'Bearer ' + token() } }).then(async (r) => {
-  const b = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error((b.error && b.error.message) || r.status);
-  return b;
-});
-const esc = (s) => String(s === null || s === undefined ? '' : s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
-const time = (ts) => new Date(ts).toLocaleString('vi-VN', { hour12: false });
-const cls = (s) => 'st s' + String(s)[0];
+const TOKEN_KEY = 'fdm_log_token';
+const LIVE_KEY = 'fdm_log_live';
+const LIVE_MS = 5000;
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+const token = () => store.get(TOKEN_KEY) || '';
+const app = document.getElementById('app');
 
-function renderAuth() {
-  $('auth').innerHTML = token()
-    ? '<button id="logout">Đăng xuất</button>'
-    : '<input id="email" placeholder="email" size="16"><input id="pw" type="password" placeholder="mật khẩu" size="12"><button id="login">Đăng nhập</button>';
-  if (token()) {
-    $('logout').onclick = () => { localStorage.removeItem('fdm_log_token'); renderAuth(); load(); };
-    return;
+const ICON = {
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+  filter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/></svg>',
+  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>',
+  logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>',
+};
+
+const STATUS_TEXT = {
+  200: 'OK', 201: 'Created', 202: 'Accepted', 204: 'No Content', 301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified',
+  400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 409: 'Conflict',
+  410: 'Gone', 413: 'Payload Too Large', 415: 'Unsupported Media Type', 422: 'Unprocessable Entity', 429: 'Too Many Requests',
+  500: 'Internal Server Error', 502: 'Bad Gateway', 503: 'Service Unavailable', 504: 'Gateway Timeout',
+};
+
+// ---------- helpers ----------
+const esc = (s) => String(s ?? '').replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n, w = 2) => String(n).padStart(w, '0');
+const hms = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const fullTime = (ts) => { const d = new Date(ts); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${hms(d)}.${pad(d.getMilliseconds(), 3)}`; };
+const shortTime = (ts) => {
+  const d = new Date(ts);
+  const t = `${hms(d)}.${pad(d.getMilliseconds(), 3)}`;
+  return d.toDateString() === new Date().toDateString() ? t : `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${t}`;
+};
+const ago = (ts) => {
+  const s = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (s < 60) return 'vừa xong';
+  if (s < 3600) return Math.floor(s / 60) + ' phút trước';
+  if (s < 86400) return Math.floor(s / 3600) + ' giờ trước';
+  return Math.floor(s / 86400) + ' ngày trước';
+};
+const ip = (v) => String(v || '').replace(/^::ffff:/, '');
+const splitPath = (p) => { const i = p.indexOf('?'); return i < 0 ? [p, ''] : [p.slice(0, i), p.slice(i)]; };
+const durCls = (ms) => (ms >= 3000 ? 'd3' : ms >= 1000 ? 'd2' : ms >= 300 ? 'd1' : 'd0');
+const durLabel = (ms) => (ms >= 3000 ? 'Rất chậm' : ms >= 1000 ? 'Chậm' : ms >= 300 ? 'Hơi chậm' : 'Nhanh');
+const methodBadge = (m) => `<span class="m m-${esc(m)}">${esc(m)}</span>`;
+const statusBadge = (s, text) => `<span class="s s${String(s)[0]}">${s}${text && STATUS_TEXT[s] ? ' ' + STATUS_TEXT[s] : ''}</span>`;
+const isEmpty = (v) => v == null || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length);
+const bytes = (v) => (v == null ? 0 : new TextEncoder().encode(JSON.stringify(v)).length);
+const fmtBytes = (n) => (n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB');
+// Giá trị bị che khi ghi log ('[redacted]') hiển thị thống nhất là ***.
+const mask = (v) => {
+  if (v === '[redacted]') return '***';
+  if (Array.isArray(v)) return v.map(mask);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mask(x)]));
+  return v;
+};
+function hl(json) {
+  const text = json.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  return text.replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g, (m) => {
+    let c = 'j-num';
+    if (m[0] === '"') c = /:$/.test(m) ? 'j-key' : m === '"***"' ? 'j-red' : 'j-str';
+    else if (m === 'true' || m === 'false') c = 'j-bool';
+    else if (m === 'null') c = 'j-null';
+    return `<span class="${c}">${m}</span>`;
+  });
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+}
+async function copy(text, label = 'Đã copy') {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch {}
+    ta.remove();
   }
-  $('login').onclick = async () => {
+  toast(label);
+}
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+class AuthError extends Error {}
+async function api(p) {
+  const r = await fetch('/api/v1' + p, { headers: { Authorization: 'Bearer ' + token() } });
+  const b = await r.json().catch(() => ({}));
+  if (r.status === 401) { store.del(TOKEN_KEY); throw new AuthError('Phiên đăng nhập đã hết hạn'); }
+  if (!r.ok) throw new Error((b.error && b.error.message) || 'HTTP ' + r.status);
+  return b;
+}
+function fail(e, el) {
+  if (e instanceof AuthError) return route();
+  el.innerHTML = `<div class="empty err">${esc(e.message)}</div>`;
+}
+
+// ---------- routing: #/?filters (danh sách) · #/log/:id/:tab (chi tiết) ----------
+const DEFAULTS = { q: '', method: '', status: '', code: '', since: '', requestId: '', duration: '', subject: '', limit: '50', page: '1', sort: 'desc' };
+let viewSeq = 0;
+let liveTimer = null;
+let lastListHash = '#/';
+let cache = { id: null, log: null };
+
+function parseHash() {
+  const h = location.hash.slice(1) || '/';
+  const i = h.indexOf('?');
+  return { path: i < 0 ? h : h.slice(0, i), params: new URLSearchParams(i < 0 ? '' : h.slice(i + 1)) };
+}
+function listHash(f) {
+  const sp = new URLSearchParams();
+  for (const k in DEFAULTS) if (f[k] && f[k] !== DEFAULTS[k]) sp.set(k, f[k]);
+  const s = sp.toString();
+  return '#/' + (s ? '?' + s : '');
+}
+function go(h) { if (location.hash === h || (!location.hash && h === '#/')) route(); else location.hash = h; }
+function openLog(id, e) {
+  const h = '#/log/' + id;
+  if (e && (e.ctrlKey || e.metaKey || e.button === 1)) window.open(h, '_blank');
+  else location.hash = h;
+}
+
+function route() {
+  viewSeq++;
+  clearInterval(liveTimer);
+  if (!token()) return renderLogin();
+  const { path, params } = parseHash();
+  const m = path.match(/^\/log\/(\d+)(?:\/(\w+))?$/);
+  if (m) return renderDetail(m[1], m[2] || 'overview');
+  lastListHash = location.hash || '#/';
+  const f = { ...DEFAULTS };
+  for (const k in f) if (params.has(k)) f[k] = params.get(k);
+  renderList(f);
+}
+window.addEventListener('hashchange', route);
+
+// ---------- login ----------
+function renderLogin() {
+  app.className = '';
+  app.innerHTML = `
+    <form class="card login" id="login">
+      <div class="brand"><span class="logo">F</span><div><div class="title">API Log</div><div class="sub">Đăng nhập bằng tài khoản manager</div></div></div>
+      <label class="field"><span>Email</span><input name="email" type="email" autocomplete="username" required /></label>
+      <label class="field"><span>Mật khẩu</span><input name="password" type="password" autocomplete="current-password" required /></label>
+      <div class="err" id="loginErr"></div>
+      <button class="btn primary" type="submit" style="justify-content:center">Đăng nhập</button>
+    </form>`;
+  document.getElementById('login').onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
     const r = await fetch('/api/v1/auth/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: $('email').value, password: $('pw').value }),
+      body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') }),
     });
-    const b = await r.json();
-    if (!r.ok) return alert((b.error && b.error.message) || 'Đăng nhập thất bại');
-    localStorage.setItem('fdm_log_token', b.accessToken);
-    renderAuth(); load();
+    const b = await r.json().catch(() => ({}));
+    if (!r.ok) { document.getElementById('loginErr').textContent = (b.error && b.error.message) || 'Đăng nhập thất bại'; return; }
+    store.set(TOKEN_KEY, b.accessToken);
+    route();
   };
 }
 
-async function load() {
-  if (!token()) { $('list').innerHTML = '<p class="muted">Đăng nhập bằng tài khoản manager.</p>'; return; }
-  const qs = new URLSearchParams({ limit: '100' });
-  if ($('q').value.trim()) qs.set('q', $('q').value.trim());
-  if ($('subject').value.trim()) qs.set('subject', $('subject').value.trim());
-  if ($('onlyErrors').checked) qs.set('onlyErrors', 'true');
-  try {
-    const { items } = await api('/logs?' + qs);
-    $('info').textContent = items.length + ' dòng';
-    $('list').innerHTML = '<table>' + items.map((r) => `
-      <tr class="row" data-id="${r.id}">
-        <td class="muted">${time(r.ts)}</td>
-        <td class="${cls(r.status)}">${r.status}</td>
-        <td>${r.method}</td>
-        <td class="path">${esc(r.path)}</td>
-        <td class="muted">${r.duration_ms}ms</td>
-        <td class="muted">${esc(r.user_email || '-')}</td>
-      </tr>`).join('') + '</table>';
-    $('list').querySelectorAll('tr.row').forEach((tr) => { tr.onclick = () => showLog(tr.dataset.id, tr); });
-  } catch (e) { $('list').innerHTML = '<p class="s5">' + esc(e.message) + '</p>'; }
+// ---------- danh sách ----------
+const opt = (value, label, cur) => `<option value="${esc(value)}"${value === cur ? ' selected' : ''}>${esc(label)}</option>`;
+
+function renderList(f) {
+  const seq = viewSeq;
+  const live = store.get(LIVE_KEY) !== 'off';
+  app.className = 'listview';
+  app.innerHTML = `
+  <header class="top">
+    <div class="brand"><span class="logo">F</span><div><div class="title">API Log</div><div class="sub">FDM backend · request POST / PUT / PATCH / DELETE và GET lỗi</div></div></div>
+    <div class="top-r">
+      <span class="muted" id="updated"></span>
+      <button class="pill${live ? ' on' : ''}" id="live" title="Tự làm mới mỗi ${LIVE_MS / 1000}s"><i></i>Live</button>
+      <button class="btn" id="refresh">${ICON.refresh}Làm mới</button>
+      <button class="btn ghost" id="logout" title="Đăng xuất">${ICON.logout}</button>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="stats" id="stats">
+      ${['Tổng request', 'Lỗi (≥ 400)', 'Thời lượng trung bình', 'Chậm nhất'].map((k) => `<div class="card stat"><div class="k">${k}</div><div class="v">–</div><div class="h">&nbsp;</div></div>`).join('')}
+    </section>
+    <form class="card filters" id="filters" autocomplete="off">
+      <div class="frow r1">
+        <label class="field wide"><span>Path chứa</span><div class="ico-in">${ICON.search}<input name="q" value="${esc(f.q)}" placeholder="vd. /api/v1/trees" /></div></label>
+        <label class="field"><span>Method</span><select name="method">${opt('', 'Tất cả', f.method)}${['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => opt(m, m, f.method)).join('')}</select></label>
+        <label class="field"><span>Status</span><select name="status">${opt('', 'Tất cả', f.status)}${opt('2xx', '2xx · thành công', f.status)}${opt('3xx', '3xx · chuyển hướng', f.status)}${opt('4xx', '4xx · lỗi client', f.status)}${opt('5xx', '5xx · lỗi server', f.status)}${opt('error', 'Chỉ lỗi (≥ 400)', f.status)}</select></label>
+        <label class="field"><span>Mã status</span><input name="code" value="${esc(f.code)}" placeholder="vd. 422" inputmode="numeric" /></label>
+        <label class="field"><span>Khoảng thời gian</span><select name="since">${opt('', 'Toàn bộ', f.since)}${opt('15', '15 phút qua', f.since)}${opt('60', '1 giờ qua', f.since)}${opt('360', '6 giờ qua', f.since)}${opt('1440', '24 giờ qua', f.since)}${opt('10080', '7 ngày qua', f.since)}${opt('43200', '30 ngày qua', f.since)}</select></label>
+      </div>
+      <div class="frow r2">
+        <label class="field wide"><span>Request ID</span><input name="requestId" value="${esc(f.requestId)}" placeholder="khớp chính xác" /></label>
+        <label class="field"><span>Thời lượng (ms)</span><input name="duration" value="${esc(f.duration)}" placeholder=">300 · <50 · 100-500" /></label>
+        <label class="field"><span>Số dòng</span><select name="limit">${['20', '50', '100', '200'].map((n) => opt(n, n, f.limit)).join('')}</select></label>
+        <button class="btn ghost" type="button" id="reset">Đặt lại</button>
+        <button class="btn primary" type="submit">${ICON.search}Tìm</button>
+      </div>
+      ${f.subject ? `<div class="chips"><span class="chip">Đối tượng: ${esc(f.subject)}<button type="button" id="clearSubject" title="Bỏ lọc">×</button></span></div>` : ''}
+    </form>
+    <section class="card tblcard">
+      <div class="tscroll">
+        <table class="list">
+          <thead><tr>
+            <th class="sort" id="sortTime">Thời gian <b>${f.sort === 'asc' ? '▲' : '▼'}</b></th>
+            <th>Thời lượng</th><th>Method</th><th>Status</th><th>Path</th><th>Mã lỗi</th><th>Request ID</th><th>IP</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="8" class="empty">Đang tải…</td></tr></tbody>
+        </table>
+      </div>
+      <footer class="tfoot">
+        <div class="legend"><span><i class="d1"></i>≥ 300 ms</span><span><i class="d2"></i>≥ 1000 ms</span><span><i class="d3"></i>≥ 3000 ms</span><span>Bấm vào một dòng để xem chi tiết · Ctrl+click để mở tab mới</span></div>
+        <div class="pager" id="pager"></div>
+      </footer>
+    </section>
+  </main>`;
+
+  const form = document.getElementById('filters');
+  const apply = (patch) => go(listHash({ ...f, ...patch }));
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const nf = { ...f, page: '1' };
+    for (const [k, v] of new FormData(form)) nf[k] = String(v).trim();
+    const dur = form.elements.duration, code = form.elements.code;
+    const badDur = nf.duration && !/^(?:(>=|<=|>|<)\s*\d+|\d+\s*-\s*\d+)$/.test(nf.duration);
+    const badCode = nf.code && !/^[1-5]\d\d$/.test(nf.code);
+    dur.classList.toggle('invalid', !!badDur);
+    code.classList.toggle('invalid', !!badCode);
+    if (badDur || badCode) return;
+    go(listHash(nf));
+  };
+  form.querySelectorAll('select').forEach((s) => { s.onchange = () => form.requestSubmit(); });
+  document.getElementById('reset').onclick = () => go('#/');
+  const cs = document.getElementById('clearSubject');
+  if (cs) cs.onclick = () => apply({ subject: '', page: '1' });
+  document.getElementById('sortTime').onclick = () => apply({ sort: f.sort === 'asc' ? 'desc' : 'asc', page: '1' });
+  document.getElementById('refresh').onclick = () => loadList(f, seq);
+  document.getElementById('logout').onclick = () => { store.del(TOKEN_KEY); route(); };
+  document.getElementById('live').onclick = (e) => {
+    const on = !e.currentTarget.classList.contains('on');
+    e.currentTarget.classList.toggle('on', on);
+    store.set(LIVE_KEY, on ? 'on' : 'off');
+    setLive(on, f, seq);
+  };
+
+  const rows = document.getElementById('rows');
+  rows.onclick = (e) => { const tr = e.target.closest('tr.row'); if (tr) openLog(tr.dataset.id, e); };
+  rows.onauxclick = (e) => { const tr = e.target.closest('tr.row'); if (tr && e.button === 1) openLog(tr.dataset.id, e); };
+  rows.onkeydown = (e) => { const tr = e.target.closest('tr.row'); if (tr && e.key === 'Enter') openLog(tr.dataset.id, e); };
+
+  loadList(f, seq);
+  setLive(live, f, seq);
 }
 
-function block(title, value) {
-  if (value === null || value === undefined) return '';
-  return `<h2>${title}</h2><pre>${esc(typeof value === 'string' ? value : JSON.stringify(value, null, 2))}</pre>`;
+function setLive(on, f, seq) {
+  clearInterval(liveTimer);
+  if (on) liveTimer = setInterval(() => { if (!document.hidden) loadList(f, seq); }, LIVE_MS);
 }
 
-async function showLog(id, tr) {
-  $('list').querySelectorAll('tr.row').forEach((x) => x.classList.remove('sel'));
-  if (tr) tr.classList.add('sel');
-  $('detail').innerHTML = '<p class="muted">Đang tải…</p>';
-  const { log } = await api('/logs/' + id);
-  $('detail').innerHTML = `
-    <div><span class="${cls(log.status)}">${log.status}</span> <b>${log.method}</b> ${esc(log.path)}</div>
-    <div class="muted">${time(log.ts)} · ${log.duration_ms}ms · ${esc(log.user_email || 'ẩn danh')} · ${esc(log.ip || '')}</div>
-    <div class="muted">request-id: ${esc(log.request_id)}</div>
-    <div style="margin:8px 0">${(log.subjects || []).map((s) => `<span class="tag" data-s="${esc(s)}">${esc(s)}</span>`).join('')}</div>
-    ${log.error_code ? `<div class="s5">Lỗi: ${esc(log.error_code)}</div>` : ''}
-    ${block('Payload', log.payload)}
-    ${block('Response', log.response)}
-    ${log.response === null && log.status < 400 ? '<p class="muted">GET thành công không lưu response (quá lớn). Bật LOG_GET_BODY=true nếu cần debug.</p>' : ''}
-    ${block('Stack', log.error_stack)}
-    <h2>Trace ngược</h2><div id="trace" class="muted">Đang tải…</div>`;
-  $('detail').querySelectorAll('.tag').forEach((t) => {
-    t.onclick = () => { $('subject').value = t.dataset.s; $('onlyErrors').checked = false; load(); };
-  });
-  trace(id);
+async function loadList(f, seq) {
+  const limit = +f.limit || 50;
+  const page = Math.max(1, +f.page || 1);
+  const sp = new URLSearchParams({ limit, offset: (page - 1) * limit, sort: f.sort });
+  for (const k of ['q', 'method', 'status', 'code', 'since', 'requestId', 'duration', 'subject']) if (f[k]) sp.set(k, f[k]);
+  const rows = document.getElementById('rows');
+  let data;
+  try { data = await api('/logs?' + sp); }
+  catch (e) { if (seq === viewSeq) fail(e, rows.parentElement.parentElement); return; }
+  if (seq !== viewSeq) return;
+  const { items, total, all } = data;
+  const filtered = Object.keys(DEFAULTS).some((k) => !['limit', 'page', 'sort'].includes(k) && f[k]);
+
+  // stats
+  const errs = items.filter((r) => r.status >= 400).length;
+  const avg = items.length ? Math.round(items.reduce((a, r) => a + r.duration_ms, 0) / items.length) : 0;
+  const slow = items.reduce((a, r) => (!a || r.duration_ms > a.duration_ms ? r : a), null);
+  const card = (k, v, h, bad) => `<div class="card stat"><div class="k">${k}</div><div class="v${bad ? ' bad' : ''}">${v}</div><div class="h" title="${esc(h)}">${h ? esc(h) : '&nbsp;'}</div></div>`;
+  document.getElementById('stats').innerHTML =
+    card('Tổng request', all.toLocaleString('vi-VN'), filtered ? `${total.toLocaleString('vi-VN')} khớp bộ lọc` : 'trong toàn bộ log') +
+    card('Lỗi (≥ 400)', `${errs} / ${items.length}`, items.length ? `${Math.round((errs / items.length) * 100)}% trên trang này` : 'trên trang này', errs > 0) +
+    card('Thời lượng trung bình', `${avg} ms`, 'trên trang này') +
+    card('Chậm nhất', slow ? `${slow.duration_ms} ms` : '–', slow ? `${slow.method} ${splitPath(slow.path)[0]}` : '');
+
+  // rows
+  const max = Math.max(1, ...items.map((r) => r.duration_ms));
+  rows.innerHTML = items.length
+    ? items.map((r) => {
+        const [p, q] = splitPath(r.path);
+        const e = r.status >= 500 ? 'e5' : r.status >= 400 ? 'e4' : '';
+        return `<tr class="row ${e}" data-id="${r.id}" tabindex="0">
+          <td class="mono t" title="${esc(fullTime(r.ts))}">${shortTime(r.ts)}</td>
+          <td><div class="dur"><span class="mono">${r.duration_ms} ms</span><span class="bar"><i class="${durCls(r.duration_ms)}" style="width:${Math.max(4, (r.duration_ms / max) * 100)}%"></i></span></div></td>
+          <td>${methodBadge(r.method)}</td>
+          <td>${statusBadge(r.status)}</td>
+          <td class="mono path" title="${esc(r.path)}">${esc(p)}${q ? `<span class="q">${esc(q)}</span>` : ''}</td>
+          <td class="mono ec${String(r.status)[0]}">${esc(r.error_code || '')}</td>
+          <td class="mono rid" title="${esc(r.request_id)}">${esc(r.request_id)}</td>
+          <td class="mono muted">${esc(ip(r.ip))}</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="8" class="empty">${filtered ? 'Không có request nào khớp bộ lọc.' : 'Chưa có request nào được ghi log.'}</td></tr>`;
+
+  // pager
+  const pages = Math.max(1, Math.ceil(total / limit));
+  const from = total ? (page - 1) * limit + 1 : 0;
+  const to = Math.min(total, (page - 1) * limit + items.length);
+  const pager = document.getElementById('pager');
+  pager.innerHTML = `<span>${from}–${to} / ${total} · trang ${page}/${pages}</span>
+    <button class="btn sm" id="prev"${page <= 1 ? ' disabled' : ''}>‹</button>
+    <button class="btn sm" id="next"${page >= pages ? ' disabled' : ''}>›</button>`;
+  document.getElementById('prev').onclick = () => go(listHash({ ...f, page: String(page - 1) }));
+  document.getElementById('next').onclick = () => go(listHash({ ...f, page: String(page + 1) }));
+  document.getElementById('updated').textContent = 'Cập nhật lúc ' + hms(new Date());
 }
 
-async function trace(id) {
-  try {
-    const { subjects, items } = await api('/logs/' + id + '/trace');
-    if (!items.length) { $('trace').textContent = 'Không có request nào khác chạm dữ liệu này.'; return; }
-    $('trace').innerHTML = `<div class="muted">theo: ${subjects.map(esc).join(', ')}</div>` + items.map((r, i) => `
-      <div class="step ${r.status >= 400 ? 'bad' : ''}">
-        <div data-i="${i}">${i + 1}. <span class="${cls(r.status)}">${r.status}</span> <b>${r.method}</b> ${esc(r.path)}
-          <span class="muted">· ${time(r.ts)} · ${esc(r.user_email || '-')}${r.error_code ? ' · ' + esc(r.error_code) : ''}</span>
+// ---------- chi tiết ----------
+const TABS = [['overview', 'Tổng quan'], ['io', 'Request & Response'], ['curl', 'cURL'], ['trace', 'Trace ngược']];
+const bodies = {}; // key -> { value, mode, wrap }
+const copies = {}; // key -> text
+
+function topbarDetail(log) {
+  return `<header class="top">
+    <div class="crumb">
+      <a class="btn" href="${esc(lastListHash)}">${ICON.back}Danh sách</a>
+      <a class="muted" href="${esc(lastListHash)}">API Log</a><span class="sep">/</span>
+      <b>${log ? esc(log.method + ' ' + splitPath(log.path)[0]) : '…'}</b>
+    </div>
+    <div class="top-r"><button class="btn" id="reload">${ICON.refresh}Tải lại</button></div>
+  </header>`;
+}
+
+async function renderDetail(id, tab) {
+  const seq = viewSeq;
+  app.className = '';
+  if (!TABS.some(([k]) => k === tab)) tab = 'overview';
+  let log = cache.id === id ? cache.log : null;
+  if (!log) {
+    app.innerHTML = topbarDetail(null) + '<main class="wrap"><div class="card empty">Đang tải…</div></main>';
+    try { log = (await api('/logs/' + id)).log; }
+    catch (e) { if (seq === viewSeq) fail(e, app.querySelector('main')); return; }
+    if (seq !== viewSeq) return;
+    cache = { id, log };
+  }
+
+  const [path, qs] = splitPath(log.path);
+  const params = [...new URLSearchParams(qs)];
+  const size = bytes(log.payload) + bytes(log.response);
+  const ms = log.duration_ms;
+  const pos = ms <= 300 ? (ms / 300) * 25 : ms <= 1000 ? 25 + ((ms - 300) / 700) * 25 : ms <= 3000 ? 50 + ((ms - 1000) / 2000) * 25 : Math.min(99.5, 75 + ((ms - 3000) / 7000) * 25);
+  copies.rid = log.request_id;
+  copies.curl = buildCurl(log);
+  copies.path = path;
+
+  app.innerHTML = topbarDetail(log) + `
+  <main class="wrap">
+    <section class="card hero">
+      <div class="hero-l">
+        <div class="hline">${methodBadge(log.method)}<span class="hpath">${esc(path)}</span>${statusBadge(log.status, true)}</div>
+        <div class="meta">
+          <span>Thời điểm <b>${fullTime(log.ts)}</b> · ${ago(log.ts)}</span>
+          <span>Request ID <b class="mono">${esc(log.request_id)}</b></span>
+          ${log.error_code ? `<span>Mã lỗi <b class="mono ec${String(log.status)[0]}">${esc(log.error_code)}</b></span>` : ''}
         </div>
-        <div class="hide" id="tb${i}">${block('Payload', r.payload)}${block('Response', r.response)}</div>
-      </div>`).join('');
-    $('trace').querySelectorAll('[data-i]').forEach((d) => {
-      d.onclick = () => $('tb' + d.dataset.i).classList.toggle('hide');
-    });
-  } catch (e) { $('trace').innerHTML = '<span class="s5">' + esc(e.message) + '</span>'; }
+        <div class="actions">
+          <button class="btn sm" data-copy="rid" data-label="Đã copy request ID">${ICON.copy}Copy request ID</button>
+          <button class="btn sm" data-copy="curl" data-label="Đã copy cURL">${ICON.copy}Copy cURL</button>
+          <a class="btn sm" href="${esc(listHash({ ...DEFAULTS, requestId: log.request_id }))}">${ICON.filter}Xem các request cùng request ID</a>
+        </div>
+      </div>
+      <div class="hero-r">
+        <div class="dbig"><b>${ms} ms</b><span>${durLabel(ms)}</span></div>
+        <div class="scale"><span class="tick" style="left:${pos}%"></span></div>
+        <div class="scale-l"><span style="left:0">0</span><span style="left:25%">300 ms</span><span style="left:50%">1000 ms</span><span style="left:75%">3000 ms</span></div>
+      </div>
+    </section>
+    <section class="card">
+      <nav class="tabs">${TABS.map(([k, label]) => `<a class="tab${k === tab ? ' on' : ''}" href="#/log/${id}/${k}">${label}${k === 'io' ? ` <small>${fmtBytes(size)}</small>` : ''}</a>`).join('')}</nav>
+      <div class="tabbody" id="tabbody"></div>
+    </section>
+  </main>`;
+
+  const body = document.getElementById('tabbody');
+  if (tab === 'overview') body.innerHTML = overview(log, path, params);
+  else if (tab === 'io') body.innerHTML = io(log, params);
+  else if (tab === 'curl') body.innerHTML = `<div class="panel">
+      <div class="panel-h"><div class="t">cURL<small>Giá trị nhạy cảm là *** — thay bằng giá trị thật trước khi chạy</small></div>
+      <button class="btn sm" data-copy="curl" data-label="Đã copy cURL">${ICON.copy}Copy</button></div>
+      <pre class="code wrap">${esc(copies.curl)}</pre></div>`;
+  else { body.innerHTML = '<div class="empty">Đang tải…</div>'; loadTrace(id, body, seq); }
 }
 
-$('reload').onclick = load;
-[$('q'), $('subject')].forEach((el) => { el.onkeydown = (e) => { if (e.key === 'Enter') load(); }; });
-$('onlyErrors').onchange = load;
-renderAuth(); load();
+function overview(log, path, params) {
+  const cp = (k) => `<button class="icon-btn" data-copy="${k}" title="Copy">${ICON.copy}</button>`;
+  const rows = [
+    ['Method', methodBadge(log.method)],
+    ['Status', statusBadge(log.status, true)],
+    ['Path', `<span class="mono">${esc(path)}</span>`, cp('path')],
+    ['Mã lỗi', log.error_code ? `<span class="mono ec${String(log.status)[0]}">${esc(log.error_code)}</span>` : '<span class="muted">—</span>'],
+    ['Thời lượng', `<span class="mono">${log.duration_ms} ms</span> <span class="muted">${durLabel(log.duration_ms)}</span>`],
+    ['Request ID', `<span class="mono">${esc(log.request_id)}</span>`, cp('rid')],
+    ['Thời điểm', `<span class="mono">${fullTime(log.ts)}</span> <span class="muted">${ago(log.ts)}</span>`],
+    ['Query params', params.length ? `${params.length} tham số · <a href="#/log/${log.id}/io" style="color:var(--accent)">xem tab Request</a>` : '<span class="muted">—</span>'],
+    ['Người dùng', log.user_email ? esc(log.user_email) : log.user_id ? `<span class="mono">${esc(log.user_id)}</span>` : '<span class="muted">ẩn danh</span>'],
+    ['Đối tượng', (log.subjects || []).length ? log.subjects.map((s) => `<a class="tag" href="${esc(listHash({ ...DEFAULTS, subject: s }))}" title="Lọc các request chạm đối tượng này">${esc(s)}</a>`).join('') : '<span class="muted">—</span>'],
+    ['Thời điểm (UTC)', `<span class="mono">${new Date(log.ts).toISOString()}</span>`],
+    ['Log ID', `<span class="mono">#${log.id}</span>`],
+    ['IP', `<span class="mono">${esc(ip(log.ip)) || '—'}</span>`],
+    ['User agent', log.user_agent ? `<span class="mono">${esc(log.user_agent)}</span>` : '<span class="muted">—</span>'],
+  ];
+  return `<table class="kv"><thead><tr><th colspan="3">REQUEST</th></tr></thead><tbody>
+    ${rows.map(([k, v, c]) => `<tr><td class="k">${k}</td><td class="v">${v}</td><td class="c">${c || ''}</td></tr>`).join('')}
+    </tbody></table>
+    ${log.error_stack ? `<div class="panel" style="margin-top:16px"><div class="panel-h"><div class="t">Stack trace</div></div><pre class="code">${esc(log.error_stack)}</pre></div>` : ''}`;
+}
+
+function io(log, params) {
+  const reqBody = log.method === 'GET' && isEmpty(log.payload) ? null : log.payload;
+  const noResp = log.response == null && log.status < 400
+    ? 'GET thành công không lưu response (quá lớn). Bật LOG_GET_BODY=true nếu cần debug.'
+    : 'Không có response body.';
+  return `<div class="io">
+    <div>
+      <div class="io-h">REQUEST ${methodBadge(log.method)}</div>
+      ${params.length ? `<div class="panel"><div class="panel-h"><div class="t">Query parameters<small>${params.length} tham số</small></div></div>
+        <table class="params">${params.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v === '***' || v === '[redacted]' ? '<span class="j-red">***</span>' : esc(v)}</td></tr>`).join('')}</table></div>` : ''}
+      ${bodyPanel('req', 'Request body', reqBody, log.request_id + '-request.json', 'Không có request body.')}
+    </div>
+    <div>
+      <div class="io-h">RESPONSE ${statusBadge(log.status, true)}</div>
+      ${bodyPanel('res', 'Response body', log.response, log.request_id + '-response.json', noResp)}
+    </div>
+  </div>`;
+}
+
+function bodyPanel(key, title, value, filename, emptyNote) {
+  if (value == null) return `<div class="panel"><div class="panel-h"><div class="t">${title}</div></div><div class="note">${esc(emptyNote)}</div></div>`;
+  const truncated = value && typeof value === 'object' && value.truncated === true && typeof value.preview === 'string';
+  const st = bodies[key] && bodies[key].value === value ? bodies[key] : { value, mode: 'pretty', wrap: false, filename };
+  bodies[key] = st;
+  const text = truncated ? value.preview : st.mode === 'pretty' ? JSON.stringify(mask(value), null, 2) : JSON.stringify(mask(value));
+  copies[key] = text;
+  return `<div class="panel" data-body="${key}">
+    <div class="panel-h">
+      <div class="t">${title}<small>${fmtBytes(truncated ? value.bytes : bytes(value))} · JSON${truncated ? ' · đã cắt' : ''}</small></div>
+      <div class="tools">
+        ${truncated ? '' : `<span class="seg"><button data-mode="pretty" class="${st.mode === 'pretty' ? 'on' : ''}">Đẹp</button><button data-mode="raw" class="${st.mode === 'raw' ? 'on' : ''}">Thô</button></span>`}
+        <button class="btn sm${st.wrap ? ' on' : ''}" data-wrap>Xuống dòng</button>
+        <button class="btn sm" data-copy="${key}">${ICON.copy}Copy</button>
+        <button class="btn sm" data-dl="${key}">${ICON.download}Tải</button>
+      </div>
+    </div>
+    ${truncated ? `<div class="note">Body quá lớn (${fmtBytes(value.bytes)}) — log chỉ giữ 2000 ký tự đầu.</div>` : ''}
+    <pre class="code${st.wrap ? ' wrap' : ''}">${truncated ? esc(text) : hl(text)}</pre>
+  </div>`;
+}
+
+function buildCurl(log) {
+  const q = (s) => "'" + String(s).replace(/'/g, "'\\''") + "'";
+  const lines = [`curl -X ${log.method} ${q(location.origin + log.path)}`];
+  if (log.user_id) lines.push(`-H ${q('authorization: Bearer ***')}`);
+  const p = log.payload;
+  const truncated = p && typeof p === 'object' && p.truncated === true;
+  if (log.method !== 'GET' && !isEmpty(p) && !truncated) {
+    lines.push(`-H 'content-type: application/json'`, `--data ${q(JSON.stringify(mask(p)))}`);
+  }
+  lines.push(`-H ${q('x-request-id: ' + log.request_id)}`);
+  return lines.join(' \\\n  ') + (truncated ? '\n# body quá lớn nên log đã cắt — không đưa vào lệnh' : '');
+}
+
+async function loadTrace(id, el, seq) {
+  let data;
+  try { data = await api('/logs/' + id + '/trace'); }
+  catch (e) { if (seq === viewSeq) fail(e, el); return; }
+  if (seq !== viewSeq) return;
+  const { subjects, items } = data;
+  if (!items.length) { el.innerHTML = '<div class="empty">Không có request nào khác chạm cùng dữ liệu này.</div>'; return; }
+  el.innerHTML = `<p class="muted" style="margin:0 0 10px">Các request chạm cùng đối tượng (${subjects.map((s) => `<span class="mono">${esc(s)}</span>`).join(', ')}) từ 2 ngày trước đến 1 giờ sau — bấm để mở payload / response.</p>
+    <div class="panel">${items.map((r, i) => `
+      <div class="step${String(r.id) === String(id) ? ' cur' : ''}" data-i="${i}">
+        <span class="mono muted">${shortTime(r.ts)}</span>${methodBadge(r.method)}${statusBadge(r.status)}
+        <span class="p" title="${esc(r.path)}">${esc(r.path)}${r.error_code ? ` <span class="ec${String(r.status)[0]}">· ${esc(r.error_code)}</span>` : ''}</span>
+        <a class="btn sm" href="#/log/${r.id}" title="Mở chi tiết">#${r.id}</a>
+      </div>
+      <div class="step-b hide" id="tb${i}"></div>`).join('')}</div>`;
+  el.onclick = (e) => {
+    if (e.target.closest('a')) return;
+    const s = e.target.closest('.step');
+    if (!s) return;
+    const box = document.getElementById('tb' + s.dataset.i);
+    if (!box.innerHTML) {
+      const r = items[+s.dataset.i];
+      const pre = (t, v) => `<div class="panel"><div class="panel-h"><div class="t">${t}</div></div>${v == null ? '<div class="note">—</div>' : `<pre class="code wrap">${hl(JSON.stringify(mask(v), null, 2))}</pre>`}</div>`;
+      box.innerHTML = pre('Payload', r.payload) + pre('Response', r.response);
+    }
+    box.classList.toggle('hide');
+  };
+}
+
+// Nút trong trang chi tiết: copy / tải / đổi chế độ hiển thị body.
+app.addEventListener('click', (e) => {
+  if (e.target.closest('#reload')) { cache = { id: null, log: null }; return route(); }
+  const b = e.target.closest('[data-copy],[data-dl],[data-mode],[data-wrap]');
+  if (!b) return;
+  if (b.dataset.copy) return copy(copies[b.dataset.copy] || '', b.dataset.label);
+  const panel = b.closest('[data-body]');
+  const key = b.dataset.dl || (panel && panel.dataset.body);
+  const st = bodies[key];
+  if (!st) return;
+  if (b.dataset.dl) return download(st.filename, copies[key]);
+  if (b.dataset.mode) st.mode = b.dataset.mode;
+  else st.wrap = !st.wrap;
+  const title = panel.querySelector('.t').firstChild.textContent;
+  panel.outerHTML = bodyPanel(key, title, st.value, st.filename, '');
+});
+
+route();
 </script>
 </body>
 </html>

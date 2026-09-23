@@ -13,9 +13,9 @@ import { farmRouter } from './routes/farm.js';
 import { historyRouter } from './routes/history.js';
 import { logsRouter } from './routes/logs.js';
 import { materialsRouter } from './routes/materials.js';
+import { varietiesRouter } from './routes/varieties.js';
 import { reportsRouter } from './routes/reports.js';
 import { tasksRouter } from './routes/tasks.js';
-import { qrRouter } from './routes/qr.js';
 import { treesRouter } from './routes/trees.js';
 import { uploadsRouter } from './routes/uploads.js';
 
@@ -71,10 +71,10 @@ export function createApp() {
   api.use('/uploads', uploadsRouter);
   api.use('/logs', logsRouter);
   api.use('/materials', materialsRouter);
+  api.use('/varieties', varietiesRouter);
   api.use('/tasks', tasksRouter);
   api.use('/reports', reportsRouter);
   api.use(historyRouter); // /trees/:code/history, /activity
-  api.use(qrRouter); // /trees/:code/qr, /qr/batch
   app.use('/api/v1', api);
 
   // UI xem/trace log — HTML tĩnh, tự gọi /api/v1/logs bằng token manager.
