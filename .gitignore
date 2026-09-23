@@ -5,3 +5,4 @@ uploads/*
 !uploads/.gitkeep
 instruction/
 instruction.bak/
+.ast-graph/
