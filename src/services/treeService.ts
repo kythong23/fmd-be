@@ -7,7 +7,7 @@ import type { z } from 'zod';
 import { query } from '../db/pool.js';
 import { notFound } from '../errors.js';
 import { toHistory, toTree } from '../mappers.js';
-import type { DurianTree } from '../types/durian.js';
+import type { AuthUser, DurianTree } from '../types/durian.js';
 import type { createTreeSchema, treeListQuerySchema, updatePositionSchema, updateTreeSchema } from '../schemas.js';
 
 export const TREE_COLUMNS = `id, farm_id, code, variety, planted_date, block, row_no, position_no,
@@ -100,7 +100,7 @@ const FIELD_TO_COLUMN: Record<string, string> = {
   heightMeters: 'height_meters', trunkDiameterCm: 'trunk_diameter_cm', image: 'image_url', notes: 'notes',
 };
 
-export async function updateTree(code: string, input: UpdateInput, actor: string) {
+export async function updateTree(client: PoolClient, code: string, input: UpdateInput, user: AuthUser) {
   const sets: string[] = [];
   const params: unknown[] = [];
   for (const [field, column] of Object.entries(FIELD_TO_COLUMN)) {
@@ -114,15 +114,28 @@ export async function updateTree(code: string, input: UpdateInput, actor: string
     sets.push(`map_x = $${params.push(input.mapPosition.x)}`, `map_y = $${params.push(input.mapPosition.y)}`);
   }
   // health_score cố tình KHÔNG có ở đây: chỉ POST /history mới được đổi (06_BACKEND §12).
-  if (!sets.length) return findTreeRow(code);
+  if (!sets.length) return findTreeRow(code, client);
+
+  // Khoá hàng: 2 request kích hoạt song song không ghi 2 dòng lịch sử 'activation'.
+  const before = (await client.query('select activated_at from trees where code = $1 for update', [code])).rows[0];
+  if (!before) throw notFound('TREE_NOT_FOUND', 'Không tìm thấy cây');
+
   // Lần đầu có người quét QR và điền thông tin thì cây coi như đã kích hoạt.
-  sets.push('last_updated = now()', 'activated_at = coalesce(activated_at, now())', `last_updated_by = $${params.push(actor)}`);
-  const { rows } = await query(
+  sets.push('last_updated = now()', 'activated_at = coalesce(activated_at, now())', `last_updated_by = $${params.push(user.fullName)}`);
+  const { rows } = await client.query(
     `update trees set ${sets.join(', ')} where code = $${params.push(code)} returning ${TREE_COLUMNS}`,
     params,
   );
-  if (!rows[0]) throw notFound('TREE_NOT_FOUND', 'Không tìm thấy cây');
-  return rows[0];
+  const tree = rows[0];
+
+  if (!before.activated_at) {
+    await client.query(
+      `insert into tree_history (tree_id, occurred_at, activity, type, status, description, performer, notes, created_by)
+       values ($1, $2, 'Kích hoạt cây', 'activation', $3, 'Khai báo hồ sơ cây lần đầu', $4, $5, $6)`,
+      [tree.id, tree.activated_at, tree.status, user.fullName, input.notes ?? null, user.id],
+    );
+  }
+  return tree;
 }
 
 /** Giai đoạn 2 — kéo-thả bản đồ. lat/lng là nguồn sự thật, map_x/y là cache hiển thị (D5). */

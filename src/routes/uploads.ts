@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
@@ -29,12 +30,37 @@ function sniffImage(buf: Buffer): 'jpg' | 'png' | 'webp' | null {
   return null;
 }
 
+const r2 = config.r2
+  ? new S3Client({
+      region: 'auto',
+      endpoint: `https://${config.r2.accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId: config.r2.accessKeyId, secretAccessKey: config.r2.secretAccessKey },
+    })
+  : null;
+
+const MIME = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' } as const;
+
 /**
- * ponytail: lưu ảnh xuống đĩa local, đủ cho MVP 1 vườn.
- * Đổi sang S3/Supabase Storage = thay thân hàm này, route và FE không đổi (06_BACKEND §11).
+ * D12: production lưu Cloudflare R2, dev không cấu hình R2 thì ghi disk local.
+ * Đổi vendor = thay thân hàm này, route và FE không đổi (06_BACKEND §11).
  */
-async function store(buf: Buffer, ext: string): Promise<string> {
+async function store(buf: Buffer, ext: keyof typeof MIME): Promise<string> {
   const name = `${randomUUID()}.${ext}`;
+  if (r2 && config.r2) {
+    const now = new Date();
+    const key = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${name}`;
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: config.r2.bucket,
+        Key: key,
+        Body: buf,
+        ContentType: MIME[ext],
+        // Tên file là UUID, không bao giờ ghi đè → cache vĩnh viễn được.
+        CacheControl: 'public, max-age=31536000, immutable',
+      }),
+    );
+    return new URL(key, config.r2.publicUrl.replace(/\/?$/, '/')).toString();
+  }
   await writeFile(join(config.uploadDir, name), buf);
   return new URL(`/uploads/${name}`, config.publicApiUrl).toString();
 }

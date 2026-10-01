@@ -9,8 +9,10 @@ export const leafCondition = z.enum(['good', 'fair', 'poor', 'yellowing']);
 export const fruitCondition = z.enum(['developing', 'blooming', 'maturing', 'harvested', 'none']);
 export const benchmarkSource = z.enum(['google', 'manual', 'gps_device', 'default']);
 export const historyTypeEnum = z.enum([
-  'health_check', 'watering', 'fertilizing', 'spraying', 'pruning', 'treatment', 'harvest',
+  'health_check', 'watering', 'fertilizing', 'spraying', 'pruning', 'treatment', 'harvest', 'activation',
 ]);
+/** 'activation' chỉ do BE ghi khi kích hoạt cây, không lên lịch công việc được. */
+export const taskTypeEnum = historyTypeEnum.exclude(['activation']);
 export const userRole = z.enum(['manager', 'worker', 'viewer']);
 export const materialType = z.enum(['fertilizer', 'pesticide', 'fungicide', 'herbicide', 'stimulant', 'variety', 'other']);
 export const taskScope = z.enum(['farm', 'block', 'tree']);
@@ -334,7 +336,7 @@ export const materialQuerySchema = z.object({
 export const taskSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
-  type: historyTypeEnum,
+  type: taskTypeEnum,
   scope: taskScope,
   block: z.string().nullable().optional(),
   treeCode: z.string().nullable().optional(),
@@ -352,7 +354,7 @@ export const taskSchema = z.object({
 
 const taskCore = {
   title: z.string().trim().min(1).max(200),
-  type: historyTypeEnum,
+  type: taskTypeEnum,
   scope: taskScope,
   block: z.string().max(20).optional(),
   treeCode: z.string().max(50).optional(),

@@ -1,0 +1,44 @@
+name: CI / Deploy BE
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Không cho 2 lần deploy chạy chồng nhau; CI của PR thì huỷ bản cũ khi có commit mới.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Test không chạm DB thật, chỉ cần config.ts không báo thiếu biến.
+      DATABASE_URL: postgres://x:y@localhost:5432/fdm
+      JWT_SECRET: ci-only-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # render.yaml đặt autoDeploy: false → chỉ deploy khi CI trên main qua.
+  deploy:
+    needs: ci
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # Hook dạng https://api.render.com/deploy/srv-xxx?key=yyy; &ref= ép deploy đúng commit vừa qua CI.
+      # Kết quả build/deploy xem trên Render dashboard (lỗi thì Render gửi email).
+      - name: Gọi Render deploy hook
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}&ref=${{ github.sha }}"

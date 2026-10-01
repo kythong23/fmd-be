@@ -8,6 +8,7 @@ import { buildOpenApiDocument } from './openapi.js';
 import { apiLogger, startApiLogCleanup } from './middleware/apiLog.js';
 import { requireAuth } from './middleware/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
+import { trackActivity } from './keepAlive.js';
 import { authRouter } from './routes/auth.js';
 import { farmRouter } from './routes/farm.js';
 import { historyRouter } from './routes/history.js';
@@ -21,6 +22,9 @@ import { uploadsRouter } from './routes/uploads.js';
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
+  // Sau Nginx mà không bật thì req.ip luôn là 127.0.0.1 → rate-limit gộp mọi user làm một.
+  if (config.trustProxy > 0) app.set('trust proxy', config.trustProxy);
+  app.use(trackActivity);
   app.use(cors({ origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(',') }));
   // Mọi response JSON kèm cờ success (true khi < 400). ponytail: patch res.json một chỗ
   // thay vì thêm field vào từng route. Không dùng tên 'status' vì object cây đã có field đó.

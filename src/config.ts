@@ -15,7 +15,27 @@ export const config = {
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173',
   publicApiUrl: process.env.PUBLIC_API_URL ?? 'http://localhost:2304',
   uploadDir: process.env.UPLOAD_DIR ?? 'uploads',
+  // D12: đủ 5 biến R2_* thì ảnh lên Cloudflare R2, thiếu thì ghi disk local (chỉ cho dev).
+  r2: process.env.R2_BUCKET
+    ? {
+        accountId: required('R2_ACCOUNT_ID'),
+        accessKeyId: required('R2_ACCESS_KEY_ID'),
+        secretAccessKey: required('R2_SECRET_ACCESS_KEY'),
+        bucket: process.env.R2_BUCKET,
+        publicUrl: required('R2_PUBLIC_URL'),
+      }
+    : null,
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
+  // Số proxy đứng trước app (Nginx = 1). 0 = không tin X-Forwarded-For (chạy trực tiếp).
+  trustProxy: Number(process.env.TRUST_PROXY ?? 0),
+  // Tự ping khi không có request trong N phút (Render free ngủ sau 15'). 0 = tắt.
+  // URL mặc định lấy RENDER_EXTERNAL_URL mà Render tự cấp cho web service.
+  keepAlive: {
+    idleMinutes: Number(process.env.KEEP_ALIVE_IDLE_MINUTES ?? 0),
+    url:
+      process.env.KEEP_ALIVE_URL ||
+      (process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/health` : ''),
+  },
   isProd: process.env.NODE_ENV === 'production',
   logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
   logGetBody: process.env.LOG_GET_BODY === 'true',

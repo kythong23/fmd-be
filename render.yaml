@@ -1,0 +1,60 @@
+# Render Blueprint: Dashboard → New → Blueprint → chọn repo này.
+# Postgres dùng Neon (Postgres free của Render bị xoá sau 30 ngày), ảnh lưu R2 (free plan không có disk).
+services:
+  - type: web
+    name: fdm-be
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    # Không tự deploy khi push: GitHub Actions gọi deploy hook sau khi CI qua.
+    autoDeploy: false
+    # --include=dev: cần typescript để build dù NODE_ENV=production.
+    # tsc không copy .sql → chép migrations vào dist như Dockerfile.
+    buildCommand: npm ci --include=dev && npm run build && mkdir -p dist/db/migrations && cp src/db/migrations/*.sql dist/db/migrations/
+    # Free plan không có preDeployCommand → migrate ngay trước khi start (đã chạy rồi thì tự bỏ qua).
+    startCommand: node dist/db/migrate.js && node --enable-source-maps dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: '1'
+      # Tự ping RENDER_EXTERNAL_URL/health khi 13 phút không có request (Render ngủ ở phút 15).
+      - key: KEEP_ALIVE_IDLE_MINUTES
+        value: '13'
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: REFRESH_EXPIRES_IN
+        value: 30d
+      - key: ENABLE_DOCS
+        value: 'false'
+      - key: ENABLE_LOG_UI
+        value: 'true'
+      - key: LOG_GET_BODY
+        value: 'false'
+      - key: LOG_RETENTION_DAYS
+        value: '14'
+      # sync: false = Render hỏi giá trị khi tạo Blueprint, không lưu trong git.
+      - key: DATABASE_URL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false

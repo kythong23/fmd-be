@@ -49,7 +49,8 @@ treesRouter.patch('/:code', async (req, res, next) => {
     const input = updateTreeSchema.parse(req.body);
     const existing = await trees.findTreeRow(req.params.code);
     assertCanWriteTree(req.user!, existing);
-    res.json(toTree(await trees.updateTree(req.params.code, input, req.user!.fullName)));
+    const row = await withTransaction((client) => trees.updateTree(client, req.params.code, input, req.user!));
+    res.json(toTree(row));
   } catch (err) {
     next(err);
   }
