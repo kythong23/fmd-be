@@ -2,7 +2,7 @@
 # Postgres dùng Neon (Postgres free của Render bị xoá sau 30 ngày), ảnh lưu R2 (free plan không có disk).
 services:
   - type: web
-    name: fdm-be
+    name: fmd-be
     runtime: node
     plan: free
     region: singapore
