@@ -41,4 +41,11 @@ jobs:
       # Hook dạng https://api.render.com/deploy/srv-xxx?key=yyy; &ref= ép deploy đúng commit vừa qua CI.
       # Kết quả build/deploy xem trên Render dashboard (lỗi thì Render gửi email).
       - name: Gọi Render deploy hook
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}&ref=${{ github.sha }}"
+        env:
+          HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK_URL" ]; then
+            echo "::error::Chưa cấu hình secret RENDER_DEPLOY_HOOK_URL (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          curl -fsS -X POST "${HOOK_URL}&ref=${{ github.sha }}"
