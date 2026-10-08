@@ -3,8 +3,10 @@ import { createApp } from './app.js';
 import { config } from './config.js';
 import { pool } from './db/pool.js';
 import { startKeepAlive } from './keepAlive.js';
+import { verifyStorage } from './routes/uploads.js';
 
 mkdirSync(config.uploadDir, { recursive: true });
+await verifyStorage();
 
 const server = createApp().listen(config.port, () => {
   console.log(`API sẵn sàng tại http://localhost:${config.port}/api/v1`);

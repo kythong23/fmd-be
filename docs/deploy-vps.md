@@ -11,7 +11,7 @@ push main ──► GitHub Actions: npm ci → typecheck → test → build → 
 
 - Push lên `dev` hoặc mở PR vào `main`: workflow chỉ chạy CI (typecheck, test, build), không deploy.
 - Push lên `main` (hoặc bấm **Run workflow**): chạy CI rồi deploy.
-- Ảnh lưu trên Cloudflare R2 qua các biến `R2_*` trong `.env` của VPS. R2 là kho file, luôn sẵn sàng, không tự tắt.
+- Ảnh lưu trên Cloudinary qua biến `CLOUDINARY_URL` trong `.env` của VPS (xem [deploy-render.md](deploy-render.md) mục 4). Không đặt biến này thì ảnh ghi vào `shared/uploads` trên VPS.
 
 Các file liên quan:
 
@@ -109,11 +109,8 @@ PUBLIC_BASE_URL=https://app.example.com
 PUBLIC_API_URL=https://api.example.com
 UPLOAD_DIR=uploads
 
-R2_ACCOUNT_ID=...
-R2_ACCESS_KEY_ID=...
-R2_SECRET_ACCESS_KEY=...
-R2_BUCKET=...
-R2_PUBLIC_URL=https://img.example.com
+CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
+CLOUDINARY_FOLDER=fdm
 
 CORS_ORIGIN=https://app.example.com
 TRUST_PROXY=1
@@ -279,7 +276,8 @@ cd /var/www/fdm-be/current && pm2 reload ecosystem.config.cjs --update-env
 | `node: command not found` khi deploy | Node cài bằng nvm. Cài lại bằng NodeSource (mục 1.3) |
 | `Host key verification failed` | `VPS_KNOWN_HOSTS` sai hoặc VPS đã cài lại. Chạy lại `ssh-keyscan` |
 | `npm ci` lỗi khi build `argon2` | Thiếu `build-essential python3` (mục 1.1) hoặc RAM quá ít. Thêm swap: `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile` |
-| `Thiếu biến môi trường ...` | `shared/.env` thiếu biến. Lưu ý: có `R2_BUCKET` thì bắt buộc đủ cả 5 biến `R2_*` |
+| `Thiếu biến môi trường ...` | `shared/.env` thiếu biến |
+| `Không kết nối được Cloudinary: ...` | Sai `CLOUDINARY_URL`: 401 = sai api_key/api_secret, 404 = sai cloud name |
 | Migrate lỗi | Bản cũ vẫn chạy (symlink chưa đổi). Sửa migration rồi push lại |
 | `/health` không phản hồi | Xem `pm2 logs fdm-be --lines 100`. Thường do sai `DATABASE_URL` hoặc `PORT` |
 | 413 khi upload ảnh | Tăng `client_max_body_size` trong Nginx |

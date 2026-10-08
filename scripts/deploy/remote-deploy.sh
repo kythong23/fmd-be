@@ -3,7 +3,7 @@
 # Cấu trúc:
 #   $APP_DIR/releases/<id>/   mỗi lần deploy một thư mục
 #   $APP_DIR/shared/.env      cấu hình thật (tạo tay 1 lần, không nằm trong git)
-#   $APP_DIR/shared/uploads/  ảnh lưu local (chỉ dùng khi không bật R2)
+#   $APP_DIR/shared/uploads/  ảnh lưu local (chỉ dùng khi không đặt CLOUDINARY_URL)
 #   $APP_DIR/current          symlink tới release đang chạy
 set -euo pipefail
 
