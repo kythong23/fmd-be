@@ -6,6 +6,24 @@ function required(name: string): string {
   return v;
 }
 
+/** cloudinary://<api_key>:<api_secret>@<cloud_name> — copy nguyên từ Cloudinary Dashboard. */
+function parseCloudinaryUrl(raw: string) {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    u = new URL('invalid:');
+  }
+  if (u.protocol !== 'cloudinary:' || !u.username || !u.password || !u.hostname) {
+    throw new Error('CLOUDINARY_URL sai định dạng, cần cloudinary://<api_key>:<api_secret>@<cloud_name>');
+  }
+  return {
+    cloudName: u.hostname,
+    apiKey: decodeURIComponent(u.username),
+    apiSecret: decodeURIComponent(u.password),
+  };
+}
+
 export const config = {
   databaseUrl: required('DATABASE_URL'),
   port: Number(process.env.PORT ?? 2304),
@@ -15,16 +33,9 @@ export const config = {
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? 'http://localhost:5173',
   publicApiUrl: process.env.PUBLIC_API_URL ?? 'http://localhost:2304',
   uploadDir: process.env.UPLOAD_DIR ?? 'uploads',
-  // D12: đủ 5 biến R2_* thì ảnh lên Cloudflare R2, thiếu thì ghi disk local (chỉ cho dev).
-  r2: process.env.R2_BUCKET
-    ? {
-        accountId: required('R2_ACCOUNT_ID'),
-        accessKeyId: required('R2_ACCESS_KEY_ID'),
-        secretAccessKey: required('R2_SECRET_ACCESS_KEY'),
-        bucket: process.env.R2_BUCKET,
-        publicUrl: required('R2_PUBLIC_URL'),
-      }
-    : null,
+  // Có CLOUDINARY_URL thì ảnh lên Cloudinary, không có thì ghi disk local (chỉ cho dev).
+  cloudinary: process.env.CLOUDINARY_URL ? parseCloudinaryUrl(process.env.CLOUDINARY_URL) : null,
+  cloudinaryFolder: process.env.CLOUDINARY_FOLDER ?? 'fdm',
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
   // Số proxy đứng trước app (Nginx = 1). 0 = không tin X-Forwarded-For (chạy trực tiếp).
   trustProxy: Number(process.env.TRUST_PROXY ?? 0),

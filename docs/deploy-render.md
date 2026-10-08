@@ -9,9 +9,9 @@
                     │ BE  · Render (free)      │ ───► │ Database · Neon      │
                     │ Node 22 + Express        │      │ PostgreSQL (free)    │
                     └────────────┬─────────────┘      └──────────────────────┘
-                                 │ S3 API (PutObject)
+                                 │ Upload API (SDK cloudinary)
                     ┌────────────▼─────────────┐
-  <img src> ──────► │ Ảnh  · Cloudflare R2     │  custom domain img.<domain>
+  <img src> ──────► │ Ảnh  · Cloudinary        │  https://res.cloudinary.com/<cloud>/...
                     └──────────────────────────┘
 ```
 
@@ -20,7 +20,7 @@
 | FE | Cloudflare Workers (static assets) | React 19, Vite, Tailwind 4, React Router 7 | 0đ |
 | BE | Render Web Service (free) | Node 22, Express 4, TypeScript, Zod | 0đ |
 | Database | Neon (free) | PostgreSQL | 0đ |
-| Lưu trữ ảnh | Cloudflare R2 | Object storage tương thích S3 | ~0đ (10 GB free) |
+| Lưu trữ ảnh | Cloudinary (free) | Lưu ảnh + CDN | 0đ (~25 credit/tháng, không cần thẻ) |
 | CI/CD | GitHub Actions | typecheck, test, build, gọi deploy | 0đ (2.000 phút/tháng) |
 
 ---
@@ -34,7 +34,6 @@
 **Tại sao dùng:**
 - FE là SPA thuần: build ra HTML/JS/CSS, không cần server riêng. Cloudflare phục vụ file từ CDN toàn cầu, nhanh, **không ngủ** và không giới hạn băng thông ở gói free.
 - `not_found_handling: "single-page-application"` trả `index.html` cho mọi đường dẫn. Điều này **bắt buộc** vì tem QR đã in trỏ tới `/tree/<code>`, thiếu thì bị lỗi 404.
-- Cùng hệ sinh thái Cloudflare với R2 nên quản lý domain và DNS ở một chỗ.
 
 **Các bước thực hiện:**
 1. Đăng nhập Cloudflare, vào **Workers & Pages → Create → Import a repository** và chọn repo `FMD-FE`.
@@ -59,7 +58,7 @@
 
 **Deploy ở đâu:** Render Web Service, gói free, region Singapore. URL là `https://<service>.onrender.com`.
 
-**Công nghệ:** Node 22, Express 4, TypeScript, Zod (validate và sinh OpenAPI), JWT, argon2 (băm mật khẩu), multer (nhận upload), AWS SDK S3 (ghi ảnh lên R2). Cấu hình deploy nằm trong [render.yaml](../render.yaml), CI/CD trong [.github/workflows/deploy.yml](../.github/workflows/deploy.yml).
+**Công nghệ:** Node 22, Express 4, TypeScript, Zod (validate và sinh OpenAPI), JWT, argon2 (băm mật khẩu), multer (nhận upload), SDK `cloudinary` (ghi ảnh lên Cloudinary). Cấu hình deploy nằm trong [render.yaml](../render.yaml), CI/CD trong [.github/workflows/deploy.yml](../.github/workflows/deploy.yml).
 
 **Tại sao dùng:**
 - BE là server Node chạy liên tục và có thư viện native (`argon2`), nên không chạy được trên Cloudflare Workers nếu không viết lại. Render build Node trên Linux, không cần Docker hay VPS.
@@ -69,7 +68,7 @@
   | Hạn chế | Cách xử lý |
   |---|---|
   | Ngủ sau 15 phút không có request | Server tự ping chính nó khi im lặng ≥ 13 phút ([src/keepAlive.ts](../src/keepAlive.ts)). Có người dùng thì không ping |
-  | Không có ổ đĩa lâu dài | Ảnh lưu trên R2 (mục 4) |
+  | Không có ổ đĩa lâu dài | Ảnh lưu trên Cloudinary (mục 4) |
   | Không có bước pre-deploy | Migrate DB chạy ngay trong lệnh start, migration nào đã chạy rồi thì tự bỏ qua |
 
 **Luồng CI/CD:**
@@ -89,7 +88,7 @@ push main     ──► như trên → qua hết ──► POST Render deploy ho
    | `DATABASE_URL` | Connection string của Neon (mục 3) |
    | `PUBLIC_BASE_URL`, `CORS_ORIGIN` | URL FE. Nhiều URL thì ngăn cách bằng dấu phẩy |
    | `PUBLIC_API_URL` | `https://<service>.onrender.com` |
-   | 5 biến `R2_*` | Lấy từ mục 4 |
+   | `CLOUDINARY_URL` | Lấy từ mục 4 |
 
    Các biến còn lại đã có sẵn trong `render.yaml`. `JWT_SECRET` do Render tự sinh.
 3. Bấm **Apply** và đợi deploy xong. Mở `https://<service>.onrender.com/health`, phải thấy `{"success":true,"ok":true}`.
@@ -127,35 +126,30 @@ push main     ──► như trên → qua hết ──► POST Render deploy ho
 
 ## 4. Lưu trữ hình ảnh
 
-**Deploy ở đâu:** Cloudflare R2, gắn custom domain vd `https://img.<domain>`.
+**Deploy ở đâu:** Cloudinary, gói free. Ảnh có URL dạng `https://res.cloudinary.com/<cloud_name>/image/upload/.../fdm/YYYY/MM/<uuid>.jpg`.
 
-**Công nghệ:** Object storage tương thích S3. BE nhận file qua multer (tối đa 5 ảnh × 10 MB mỗi request) rồi ghi lên R2 bằng `@aws-sdk/client-s3`. FE hiển thị ảnh trực tiếp từ domain của R2, không đi qua BE.
+**Công nghệ:** BE nhận file qua multer (tối đa 5 ảnh × 10 MB mỗi request), kiểm tra magic bytes rồi đẩy lên Cloudinary bằng SDK `cloudinary`. DB chỉ lưu URL. FE hiển thị ảnh trực tiếp từ CDN của Cloudinary, không đi qua BE.
 
 **Tại sao dùng:**
-- Render free không có ổ đĩa lâu dài: ảnh ghi lên máy sẽ mất sau mỗi lần deploy. R2 lưu vĩnh viễn.
-- **Băng thông tải ra (egress) miễn phí**. Với ảnh cây được xem nhiều lần, đây là khác biệt lớn so với S3.
-- Gói free 10 GB lưu trữ, 1 triệu lượt ghi và 10 triệu lượt đọc mỗi tháng, dư cho quy mô app.
-- Không phải server nên không ngủ, không có độ trễ khởi động.
-- Ảnh được phục vụ qua CDN của Cloudflare và không tốn tài nguyên của BE.
+- Render free không có ổ đĩa lâu dài: ảnh ghi lên máy sẽ mất sau mỗi lần deploy. Cloudinary lưu vĩnh viễn.
+- Đăng ký **không cần thẻ thanh toán** (Cloudflare R2 bắt buộc thẻ dù dùng gói free).
+- Gói free khoảng 25 credit/tháng (1 credit ≈ 1 GB lưu trữ hoặc 1 GB băng thông), dư cho quy mô app.
+- Không ngủ, ảnh phục vụ qua CDN và không tốn tài nguyên của BE.
+- Resize/nén ảnh qua URL (vd chèn `w_400,q_auto,f_auto` sau `/upload/`) nếu FE cần ảnh nhỏ cho danh sách.
 
 **Các bước thực hiện:**
-1. Cloudflare Dashboard → **R2 → Create bucket** (vd `fdm-images`), location **Asia-Pacific**.
-2. Vào bucket → **Settings → Custom Domains → Connect Domain** và nhập `img.<domain>`. Domain phải được quản lý DNS trên Cloudflare.
-   Không dùng `*.r2.dev` cho production vì bị giới hạn tốc độ và không có cache.
-3. **R2 → Manage R2 API Tokens → Create API token**:
-   - Quyền: **Object Read & Write**
-   - Phạm vi: **chỉ bucket `fdm-images`**
-4. Lấy thông tin và nhập vào Render:
+1. Đăng ký tại cloudinary.com (email hoặc Google).
+2. Vào **Dashboard** (hoặc **Settings → API Keys**), copy **API environment variable**, dạng `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>`. Bấm biểu tượng con mắt để hiện secret trước khi copy.
+3. Render → service BE → **Environment**:
 
-   | Biến | Lấy ở đâu |
+   | Biến | Giá trị |
    |---|---|
-   | `R2_ACCOUNT_ID` | Trang R2 Overview (Account ID) |
-   | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Hiện **một lần duy nhất** khi tạo token |
-   | `R2_BUCKET` | `fdm-images` |
-   | `R2_PUBLIC_URL` | `https://img.<domain>` |
+   | `CLOUDINARY_URL` | Phần sau dấu `=` ở bước 2, bắt đầu bằng `cloudinary://` |
+   | `CLOUDINARY_FOLDER` | `fdm` (đã có sẵn trong `render.yaml`) |
 
-   Đặt `R2_BUCKET` thì bắt buộc đủ cả 5 biến, thiếu biến nào BE sẽ báo lỗi khi start.
-5. Kiểm tra: upload một ảnh từ app rồi mở URL ảnh. URL phải bắt đầu bằng `https://img.<domain>/`.
+4. Kiểm tra:
+   - Render Logs lúc start phải có dòng `Cloudinary sẵn sàng: cloud "<cloud_name>", folder "fdm"`. BE gọi thử Cloudinary khi khởi động, sai key/secret thì deploy fail ngay.
+   - Upload một ảnh từ app rồi mở URL ảnh. URL phải bắt đầu bằng `https://res.cloudinary.com/`. Ảnh cũng hiện trong **Media Library → fdm** trên Cloudinary.
 
 ---
 
@@ -181,7 +175,9 @@ push main     ──► như trên → qua hết ──► POST Render deploy ho
 | BE build lỗi `tsc: not found` | `buildCommand` thiếu `--include=dev` (đã có sẵn trong `render.yaml`) |
 | `Thiếu biến môi trường ...` | Thiếu biến trong tab Environment của Render |
 | Migrate lỗi khi start | `DATABASE_URL` sai hoặc thiếu `?sslmode=require` |
-| Ảnh upload xong một lúc thì mất | Chưa bật R2, ảnh đang ghi vào đĩa tạm của Render |
+| `CLOUDINARY_URL sai định dạng` khi start | Giá trị phải bắt đầu bằng `cloudinary://`, không kèm chữ `CLOUDINARY_URL=` |
+| `Không kết nối được Cloudinary: ...` khi start | 401 = sai api_key/api_secret (secret bị copy dạng `*****`?), 404 = sai cloud name |
+| Ảnh upload xong một lúc thì mất | Chưa đặt `CLOUDINARY_URL`, ảnh đang ghi vào đĩa tạm của Render (log start có cảnh báo `⚠ Chưa cấu hình CLOUDINARY_URL`) |
 | Job `deploy` lỗi 404/401 | Secret `RENDER_DEPLOY_HOOK_URL` sai hoặc hook đã bị regenerate |
 | BE vẫn ngủ | Logs không có dòng `[keep-alive] tự ping ...`: kiểm tra `KEEP_ALIVE_IDLE_MINUTES`, và xem có service free khác dùng chung 750 giờ không |
 
@@ -189,4 +185,5 @@ push main     ──► như trên → qua hết ──► POST Render deploy ho
 
 - **BE:** nâng Render lên Starter (khoảng 7 USD/tháng, không ngủ, đặt `KEEP_ALIVE_IDLE_MINUTES=0`), hoặc chuyển sang VPS theo [deploy-vps.md](deploy-vps.md).
 - **DB:** Neon Launch nếu cần giữ lịch sử khôi phục dài hơn hoặc DB lớn hơn 0,5 GB.
-- FE và R2 giữ nguyên.
+- **Ảnh:** theo dõi credit trong Cloudinary Dashboard. Vượt gói free thì nâng Cloudinary hoặc chuyển sang Cloudflare R2: chỉ cần thay thân hàm `store()` trong [src/routes/uploads.ts](../src/routes/uploads.ts), ảnh cũ vẫn mở được qua URL đã lưu.
+- FE giữ nguyên.

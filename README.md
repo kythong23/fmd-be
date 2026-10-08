@@ -94,7 +94,7 @@ src/
 1. **`users` thêm `email`, `password_hash`, `token_version`.** `03_DATABASE.md` §6 không có cột nào để đăng nhập, nhưng `06_BACKEND.md` §5 chốt JWT tự phát hành. Ba cột này là mức tối thiểu. Nếu chuyển sang Supabase Auth thì bỏ `password_hash`/`token_version`.
 2. **`HistoryRecord` bỏ `date` + `time`, dùng `occurredAt` (ISO).** Theo D3 — API không format ngược lại cho FE, FE mới tự format bằng `utils/date.ts`.
 3. **`farms.benchmark_updated_at`** thêm mới để phục vụ `CadastralBenchmark.updatedAt`.
-4. **Upload lưu đĩa local** (`uploads/`), không dùng S3/Supabase Storage. Đổi vendor = thay thân hàm `store()` trong [src/routes/uploads.ts](src/routes/uploads.ts).
+4. **Upload lưu Cloudinary** khi có `CLOUDINARY_URL`, không có thì ghi đĩa local (`uploads/`, chỉ cho dev). Đổi vendor = thay thân hàm `store()` trong [src/routes/uploads.ts](src/routes/uploads.ts).
 5. **RLS chưa bật** (03_DATABASE §9) — chỉ áp dụng nếu dùng Supabase.
 
 ## Chưa làm

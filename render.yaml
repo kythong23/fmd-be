@@ -1,5 +1,5 @@
 # Render Blueprint: Dashboard → New → Blueprint → chọn repo này.
-# Postgres dùng Neon (Postgres free của Render bị xoá sau 30 ngày), ảnh lưu R2 (free plan không có disk).
+# Postgres dùng Neon (Postgres free của Render bị xoá sau 30 ngày), ảnh lưu Cloudinary (free plan không có disk).
 services:
   - type: web
     name: fmd-be
@@ -48,13 +48,7 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
-      - key: R2_ACCOUNT_ID
+      - key: CLOUDINARY_URL
         sync: false
-      - key: R2_ACCESS_KEY_ID
-        sync: false
-      - key: R2_SECRET_ACCESS_KEY
-        sync: false
-      - key: R2_BUCKET
-        sync: false
-      - key: R2_PUBLIC_URL
-        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: fdm
