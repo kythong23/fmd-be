@@ -136,7 +136,9 @@ export const treeListQuerySchema = z.object({
   block: z.string().max(20).optional(),
   status: treeStatus.optional(),
   q: z.string().max(100).optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(100),
+  // Không truyền -> BE lấy theo số cây chủ vườn khai (hoặc số cây thực tế nếu nhiều hơn).
+  // Trần 5000 khớp estimatedTreeCount.
+  limit: z.coerce.number().int().min(1).max(5000).optional(),
   cursor: z.string().max(100).optional(),
 });
 

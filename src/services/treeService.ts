@@ -23,6 +23,20 @@ export async function findTreeRow(code: string, client?: PoolClient) {
   return rows[0];
 }
 
+/**
+ * Mặc định 1 trang = số cây chủ vườn khai, hoặc số cây thực tế nếu nhiều hơn
+ * (cây có dữ liệu giữ lại khi giảm số khai, cây thêm tay). Kẹp [1, 5000] theo trần của schema.
+ */
+async function defaultTreeLimit(farmId: string): Promise<number> {
+  const { rows } = await query(
+    `select least(5000, greatest(1, f.estimated_tree_count,
+              (select count(*)::int from trees where farm_id = f.id)))::int as n
+       from farms f where f.id = $1`,
+    [farmId],
+  );
+  return rows[0]?.n ?? 1;
+}
+
 export async function listTrees(farmId: string, q: z.infer<typeof treeListQuerySchema>) {
   const where: string[] = ['farm_id = $1'];
   const params: unknown[] = [farmId];
@@ -31,13 +45,14 @@ export async function listTrees(farmId: string, q: z.infer<typeof treeListQueryS
   if (q.q) where.push(`(code ilike $${params.push(`%${q.q}%`)} or bed_name ilike $${params.length})`);
   if (q.cursor) where.push(`code > $${params.push(q.cursor)}`);
 
-  const limitParam = params.push(q.limit + 1);
+  const limit = q.limit ?? (await defaultTreeLimit(farmId));
+  const limitParam = params.push(limit + 1);
   const { rows } = await query(
     `select ${TREE_COLUMNS} from trees where ${where.join(' and ')} order by code asc limit $${limitParam}`,
     params,
   );
-  const hasMore = rows.length > q.limit;
-  const page = hasMore ? rows.slice(0, q.limit) : rows;
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
   // GET /trees không kèm history (04_API.md §1 — trả mảng nhẹ)
   return { items: page.map((r) => toTree(r)), nextCursor: hasMore ? page[page.length - 1].code : null };
 }
