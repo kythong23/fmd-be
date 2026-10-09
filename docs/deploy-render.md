@@ -67,7 +67,7 @@
 
   | Hạn chế | Cách xử lý |
   |---|---|
-  | Ngủ sau 15 phút không có request | Server tự ping chính nó khi im lặng ≥ 13 phút ([src/keepAlive.ts](../src/keepAlive.ts)). Có người dùng thì không ping |
+  | Ngủ sau 15 phút không có request | cron-job.org gọi `/health` mỗi 10 phút (bước 6). Dự phòng: server tự ping chính nó khi không có request thật ≥ 13 phút ([src/keepAlive.ts](../src/keepAlive.ts)) |
   | Không có ổ đĩa lâu dài | Ảnh lưu trên Cloudinary (mục 4) |
   | Không có bước pre-deploy | Migrate DB chạy ngay trong lệnh start, migration nào đã chạy rồi thì tự bỏ qua |
 
@@ -94,8 +94,18 @@ push main     ──► như trên → qua hết ──► POST Render deploy ho
 3. Bấm **Apply** và đợi deploy xong. Mở `https://<service>.onrender.com/health`, phải thấy `{"success":true,"ok":true}`.
 4. Vào **Settings → Deploy Hook** trên Render và copy URL. Trên GitHub, vào **Settings → Secrets and variables → Actions** và tạo secret `RENDER_DEPLOY_HOOK_URL` với URL đó.
 5. Push lên `main` và kiểm tra tab **Actions** (GitHub) và **Events** (Render).
-6. Sau khoảng 30 phút không có ai dùng, mở **Logs** trên Render. Phải thấy `GET /health 200` khoảng mỗi 13 phút và không có sự kiện *spun down*.
-7. Mở trang `/logs` và xem cột IP. Nếu mọi request đều cùng một IP nội bộ (10.x…), đổi `TRUST_PROXY` thành `2`.
+6. Giữ BE luôn thức bằng cron-job.org. Đăng ký https://cron-job.org, rồi **Create cronjob**:
+
+   | Mục | Giá trị |
+   |---|---|
+   | URL | `https://<service>.onrender.com/health`. Đây là URL của **BE**, không phải FE (FE trên Cloudflare không ngủ) |
+   | Execution schedule | **Every 10 minutes** (`*/10 * * * *`). Kiểm tra **Next executions** phải cách nhau 10 phút. Không để `14 * * * *` vì như vậy chỉ chạy 1 lần/giờ |
+   | Notifications | Bật thông báo khi job lỗi. cron-job.org tự tắt job nếu lỗi nhiều lần liên tiếp |
+   | Advanced → Timeout | 30 giây (mức tối đa của gói free) |
+
+   Bấm **Test run**, phải thấy status 200. Nếu BE đang ngủ thì lần ping đầu có thể báo timeout, vì BE cần khoảng 50 giây để khởi động, nhưng vẫn đánh thức được BE. Các lần sau sẽ OK.
+7. Sau một đêm không có ai dùng, kiểm tra **Logs** trên Render: instance ID (vd `[jn4qw]`) phải giữ nguyên, và không có dòng `==> Running 'node dist/db/migrate.js ...'` mới. Mục **History** trên cron-job.org phải toàn 200.
+8. Mở trang `/logs` và xem cột IP. Nếu mọi request đều cùng một IP nội bộ (10.x…), đổi `TRUST_PROXY` thành `2`.
 
 > Workspace free chỉ có **750 giờ/tháng**. Một service chạy 24/7 dùng khoảng 744 giờ, nên **không tạo thêm service free nào khác** trong cùng workspace.
 
@@ -110,7 +120,7 @@ push main     ──► như trên → qua hết ──► POST Render deploy ho
 **Tại sao dùng:**
 - Postgres free của Render **bị xoá sau 30 ngày**. Neon free dùng lâu dài.
 - Region Singapore đặt cạnh Render Singapore nên độ trễ giữa BE và DB thấp.
-- DB tự tạm dừng khi không có truy vấn, nên không tốn tài nguyên. Truy vấn đầu tiên sau khi tạm dừng chậm hơn khoảng 0,5–1 giây. Server tự ping `/health` không truy vấn DB, nên DB vẫn được nghỉ.
+- DB tự tạm dừng khi không có truy vấn, nên không tốn tài nguyên. Truy vấn đầu tiên sau khi tạm dừng chậm hơn khoảng 0,5–1 giây. Cả cron-job.org lẫn server tự ping đều chỉ gọi `/health`, endpoint này không truy vấn DB, nên DB vẫn được nghỉ. **Không thêm truy vấn DB vào `/health`**, nếu không Neon sẽ chạy liên tục và tốn hết giờ compute free.
 - Có sẵn branching và khôi phục dữ liệu theo thời điểm (free: lịch sử 1 ngày).
 
 **Các bước thực hiện:**
@@ -179,7 +189,7 @@ push main     ──► như trên → qua hết ──► POST Render deploy ho
 | `Không kết nối được Cloudinary: ...` khi start | 401 = sai api_key/api_secret (secret bị copy dạng `*****`?), 404 = sai cloud name |
 | Ảnh upload xong một lúc thì mất | Chưa đặt `CLOUDINARY_URL`, ảnh đang ghi vào đĩa tạm của Render (log start có cảnh báo `⚠ Chưa cấu hình CLOUDINARY_URL`) |
 | Job `deploy` lỗi 404/401 | Secret `RENDER_DEPLOY_HOOK_URL` sai hoặc hook đã bị regenerate |
-| BE vẫn ngủ | Logs không có dòng `[keep-alive] tự ping ...`: kiểm tra `KEEP_ALIVE_IDLE_MINUTES`, và xem có service free khác dùng chung 750 giờ không |
+| BE vẫn ngủ | Xem **History** của job trên cron-job.org: job còn bật không, URL đúng BE chưa, lịch có phải mỗi 10 phút không. Kiểm tra log start có dòng `[keep-alive] tự ping ...` (lớp dự phòng, cần `KEEP_ALIVE_IDLE_MINUTES` > 0), và xem có service free khác dùng chung 750 giờ không |
 
 ## Khi có người dùng thật
 
