@@ -43,11 +43,11 @@ export async function listTrees(farmId: string, q: z.infer<typeof treeListQueryS
 }
 
 /** GET /trees/:code — kèm history + gallery. */
-export async function getTreeDetail(row: any): Promise<DurianTree> {
-  const [history, gallery] = await Promise.all([
-    query('select * from tree_history where tree_id = $1 order by occurred_at desc limit 50', [row.id]),
-    query('select url from tree_images where tree_id = $1 order by sort_order asc, created_at asc', [row.id]),
-  ]);
+export async function getTreeDetail(row: any, client?: PoolClient): Promise<DurianTree> {
+  // Trong transaction phải đọc qua chính client đó, nếu không sẽ không thấy bản ghi vừa insert.
+  const run = (sql: string, params: unknown[]) => (client ? client.query(sql, params) : query(sql, params));
+  const history = await run('select * from tree_history where tree_id = $1 order by occurred_at desc limit 50', [row.id]);
+  const gallery = await run('select url from tree_images where tree_id = $1 order by sort_order asc, created_at asc', [row.id]);
   return toTree(row, history.rows.map(toHistory), gallery.rows.map((r) => r.url));
 }
 

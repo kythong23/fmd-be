@@ -33,7 +33,7 @@ export async function insertHistory(client: PoolClient, code: string, input: Inp
   if (input.clientRequestId) {
     const dup = await client.query('select * from tree_history where client_request_id = $1', [input.clientRequestId]);
     if (dup.rows[0]) {
-      return { created: false, record: toHistory(dup.rows[0]), tree: await getTreeDetail(tree) };
+      return { created: false, record: toHistory(dup.rows[0]), tree: await getTreeDetail(tree, client) };
     }
   }
 
@@ -68,14 +68,13 @@ export async function insertHistory(client: PoolClient, code: string, input: Inp
        trunk_diameter_cm = coalesce($4, trunk_diameter_cm),
        soil_moisture = coalesce($5, soil_moisture),
        fruit_count = coalesce($6, fruit_count),
-       image_url = coalesce($7, image_url),
-       last_updated = $8,
-       last_updated_by = $9
-     where id = $10 returning ${TREE_COLUMNS}`,
+       last_updated = $7,
+       last_updated_by = $8
+     where id = $9 returning ${TREE_COLUMNS}`,
     [
       input.status, healthScore,
       m.height ?? null, m.trunkDiameter ?? null, m.soilMoisture ?? null, m.fruitCount ?? null,
-      input.images[0] ?? null, occurredAt, performer, tree.id,
+      occurredAt, performer, tree.id,
     ],
   );
 
@@ -85,7 +84,7 @@ export async function insertHistory(client: PoolClient, code: string, input: Inp
   }
 
   // Trả cây đã cập nhật kèm history -> FE thay thẳng vào state, không gọi lại GET.
-  return { created: true, record: toHistory(inserted.rows[0]), tree: await getTreeDetail(updated.rows[0]) };
+  return { created: true, record: toHistory(inserted.rows[0]), tree: await getTreeDetail(updated.rows[0], client) };
 }
 
 export async function listTreeHistory(code: string, q: z.infer<typeof historyQuerySchema>) {
